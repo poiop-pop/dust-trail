@@ -9,28 +9,32 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Unbounded:wght@600;800&display=swap">
 <style>
-/* Layout: ASCII-экран сверху как главное окно, под ним четыре рабочие панели (2×2, на телефоне в столбик) */
+/* Layout: экран похода всегда сверху, под ним одна вкладка, панель вкладок прибита к низу (как в мобильном приложении) */
 :root{
   --bg:#161922; --screen:#0e1016; --panel:#1d212c; --line:#2e3444;
-  --fg:#d9d3c3; --dim:#8b909e; --amber:#e3a547; --hero:#86c5bd; --foe:#de7a62; --good:#9ccf7a;
+  --fg:#d9d3c3; --dim:#8b909e; --amber:#e3a547; --hero:#86c5bd; --foe:#de7a62; --good:#9ccf7a; --soul:#b99cf0;
   --display:'Unbounded','Arial Black',system-ui,sans-serif;
   --mono:'IBM Plex Mono',ui-monospace,Consolas,'Courier New',monospace;
+  --tabh:56px;
   color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{background:var(--bg);color:var(--fg);margin:0;-webkit-tap-highlight-color:transparent}
+body{font-family:var(--mono);font-size:14px;line-height:1.5}
 button{touch-action:manipulation}
-body{font-family:var(--mono);font-size:14px;line-height:1.5;
-  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
-.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
-header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px}
-h1{font-family:var(--display);font-weight:800;font-size:clamp(22px,4vw,32px);letter-spacing:.01em;margin:0;text-wrap:balance}
+[hidden]{display:none!important}
+.app{max-width:860px;margin:0 auto;display:flex;flex-direction:column;gap:12px;
+  padding-left:max(12px,env(safe-area-inset-left,0px));padding-right:max(12px,env(safe-area-inset-right,0px));
+  padding-block:12px calc(var(--tabh) + 20px + env(safe-area-inset-bottom,0px))}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:4px 18px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(19px,4.5vw,30px);letter-spacing:.01em;margin:0}
 h1 span{color:var(--amber)}
-.stats{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats{display:flex;gap:4px 14px;flex-wrap:wrap;color:var(--dim);font-size:12.5px;font-variant-numeric:tabular-nums}
 .stats b{color:var(--fg);font-weight:600}
 .stats .sh b{color:var(--amber)}
-.screen{background:var(--screen);border:1px solid var(--line);border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:10px}
-.hud{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:8px 18px;align-items:center;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats .sp b{color:var(--soul)}
+.screen{background:var(--screen);border:1px solid var(--line);border-radius:4px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.hud{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:6px 16px;align-items:center;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
 .bar{display:flex;align-items:center;gap:8px;min-width:0}
 .bar .track{flex:1;height:8px;background:var(--line);border-radius:2px;overflow:hidden;min-width:40px}
 .bar .fill{height:100%;background:var(--hero);transition:width .15s linear}
@@ -39,29 +43,27 @@ h1 span{color:var(--amber)}
 .bar span{white-space:nowrap}
 .hud .pots{white-space:nowrap}
 .hud .boss{grid-column:1/-1}
-[hidden]{display:none!important}
-canvas{display:block;width:100%;image-rendering:auto}
-.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
-.hint{color:var(--dim);font-size:12px}
+canvas{display:block;width:100%}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px}
+.hint{color:var(--dim);font-size:12px;margin:0}
 button,select,input{font-family:var(--mono);font-size:13px;color:var(--fg)}
-button{background:transparent;border:1px solid var(--line);border-radius:3px;padding:5px 10px;cursor:pointer}
+button{background:transparent;border:1px solid var(--line);border-radius:3px;padding:6px 10px;cursor:pointer}
 button:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
 button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
 button:disabled{opacity:.4;cursor:default}
-button.primary{background:var(--amber);border-color:var(--amber);color:var(--screen);font-weight:600;padding:6px 16px}
+button.primary{background:var(--amber);border-color:var(--amber);color:var(--screen);font-weight:600;padding:7px 18px}
 button.primary:hover:not(:disabled){background:transparent;color:var(--amber)}
 button.on{border-color:var(--hero);color:var(--hero)}
+button.soul{border-color:var(--soul);color:var(--soul)}
+button.soul.armed{background:var(--soul);color:var(--screen)}
 .seg{display:flex;gap:4px}
-.sound{display:flex;align-items:center;gap:8px}
-.sound input{width:90px;accent-color:var(--amber)}
-.sound input:disabled{opacity:.4}
 label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--dim);font-size:13px}
 select,input[type=number]{background:var(--screen);border:1px solid var(--line);border-radius:3px;padding:3px 4px}
 input[type=number]{width:52px}
-.panels{display:grid;grid-template-columns:1fr;gap:16px}
-@media (min-width:760px){.panels{grid-template-columns:1fr 1fr}}
-.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
-.panel h2{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:0;color:var(--dim)}
+input[type=range]{accent-color:var(--amber);width:140px}
+.pane{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.pane h2{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:0;color:var(--dim)}
+.list{display:flex;flex-direction:column;gap:6px}
 .loc{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:3px;cursor:pointer;background:transparent;text-align:left;width:100%}
 .loc .t{font-weight:600}
 .loc .sub{grid-column:2/4;color:var(--dim);font-size:12px}
@@ -69,40 +71,58 @@ input[type=number]{width:52px}
 .loc.sel{border-color:var(--amber)}
 .loc.sel .mark{color:var(--amber)}
 .loc.locked{cursor:default;opacity:.45}
-.list{display:flex;flex-direction:column;gap:6px}
 .slots{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
 .slots .k{color:var(--dim)}
-.item{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;border:1px solid var(--line);border-radius:3px}
+.item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:8px 10px;border:1px solid var(--line);border-radius:3px}
 .item .n{font-weight:600}
 .item .n em{font-style:normal;color:var(--amber);font-weight:500}
 .item .d{color:var(--dim);font-size:12px;grid-column:1/2}
-.item .acts{grid-row:1/3;grid-column:2;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-content:center;max-width:220px}
+.item .acts{grid-row:1/3;grid-column:2;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-content:center;max-width:200px}
 .item.eq{border-color:var(--hero)}
+.recipe .acts,.perk .acts{grid-row:1/4}
 .tag{font-size:11px;color:var(--hero);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
 .rule{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:3px}
 .rule .kw{color:var(--amber);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
 .rule .sp{flex:1}
-.rule button{padding:2px 8px}
-@media (min-width:760px){.panel.wide{grid-column:1/-1}}
+.rule button{padding:3px 9px}
 .mats{display:flex;flex-wrap:wrap;gap:6px}
 .mat{border:1px solid var(--line);border-radius:3px;padding:2px 8px;font-size:12px;color:var(--dim);white-space:nowrap}
 .mat::before{content:'◆';color:var(--mc);margin-right:5px}
 .mat b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
-.recipe .acts{grid-row:1/4}
 .need{font-variant-numeric:tabular-nums}
 .need .miss{color:var(--foe)}
-#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto;font-size:12.5px}
+.soulbox{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.soulbox div{border:1px solid var(--line);border-radius:3px;padding:8px 10px;display:flex;flex-direction:column}
+.soulbox span{color:var(--dim);font-size:11.5px}
+.soulbox b{font-size:18px;font-weight:600;color:var(--soul);font-variant-numeric:tabular-nums}
+.perk .n em{color:var(--soul)}
+#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;font-size:12.5px}
 #log li{color:var(--dim)}
 #log li.loot{color:var(--amber)}
 #log li.bad{color:var(--foe)}
 #log li.good{color:var(--good)}
 #log li.hero{color:var(--hero)}
-@media (max-width:520px){.hud{grid-template-columns:1fr auto}.hud .prog{grid-column:1/-1;grid-row:2}}
+#log li.soul{color:var(--soul)}
+.tabbar{position:fixed;left:0;right:0;bottom:0;z-index:5;background:var(--panel);border-top:1px solid var(--line);
+  padding-bottom:env(safe-area-inset-bottom,0px);padding-left:env(safe-area-inset-left,0px);padding-right:env(safe-area-inset-right,0px)}
+.tabbar .in{max-width:860px;margin:0 auto;display:grid;grid-template-columns:repeat(6,minmax(0,1fr))}
+.tab{position:relative;border:0;border-radius:0;background:transparent;color:var(--dim);font-size:11px;height:var(--tabh);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:0}
+.tab .ic{font-size:16px;line-height:1.1;font-weight:600}
+.tab.on{color:var(--amber)}
+.tab.on::after{content:'';position:absolute;top:0;left:25%;right:25%;height:2px;background:var(--amber)}
+.tab .dot{position:absolute;top:8px;left:calc(50% + 9px);width:7px;height:7px;border-radius:50%;background:var(--amber)}
+.tab .dot.soul{background:var(--soul)}
+@media (max-width:520px){
+  .hud{grid-template-columns:1fr auto}.hud .prog{grid-column:1/-1;grid-row:2}
+  .item .acts{max-width:130px}
+  .soulbox b{font-size:16px}
+}
 </style>
 </head>
 <body>
 
-<div class="wrap">
+<div class="app">
   <header>
     <h1>Пыльная <span>Тропа</span></h1>
     <div class="stats" id="stats"></div>
@@ -121,34 +141,54 @@ input[type=number]{width:52px}
       <div class="seg" role="group" aria-label="Скорость">
         <button id="sp1" data-speed="1">1×</button><button id="sp2" data-speed="2">2×</button><button id="sp4" data-speed="4">4×</button>
       </div>
-      <label for="auto"><input type="checkbox" id="auto"> Повторять поход</label>
-      <div class="sound"><button id="snd" aria-pressed="true">Звук вкл</button><input type="range" id="vol" min="0" max="100" step="5" aria-label="Громкость"></div>
+      <label for="auto"><input type="checkbox" id="auto"> Повтор</label>
+      <button id="snd" aria-pressed="true">Звук</button>
       <span class="hint" id="status"></span>
     </div>
   </section>
 
-  <div class="panels">
-    <section class="panel"><h2>Карта земель</h2><div class="list" id="map"></div></section>
-    <section class="panel"><h2>Снаряжение</h2><div id="equip" class="list"></div></section>
-    <section class="panel">
-      <h2>Тактика</h2>
-      <p class="hint" style="margin:0">Правила проверяются сверху вниз каждое мгновение боя. Первое подходящее «взять» решает, что у героя в руке.</p>
-      <div class="list" id="rules"></div>
-      <div><button id="addRule">+ Добавить правило</button></div>
-    </section>
-    <section class="panel">
-      <h2>Мастерская</h2>
-      <p class="hint" style="margin:0">Материалы падают с врагов и остаются у вас даже после поражения. Если предмет уже есть, рецепт перекуёт его на уровень выше.</p>
-      <div class="list" id="craft"></div>
-    </section>
-    <section class="panel wide"><h2>Журнал</h2><ol id="log"></ol></section>
-  </div>
+  <section class="pane" data-pane="map"><h2>Карта земель</h2>
+    <p class="hint">Каждая следующая земля опаснее: здоровье врагов растёт в 4 раза, урон в 3 раза.</p>
+    <div class="list" id="map"></div></section>
+  <section class="pane" data-pane="equip" hidden><h2>Снаряжение</h2><div id="equip" class="list"></div></section>
+  <section class="pane" data-pane="rules" hidden>
+    <h2>Тактика</h2>
+    <p class="hint">Правила проверяются сверху вниз каждое мгновение боя. Первое подходящее «взять» решает, что у героя в руке.</p>
+    <div class="list" id="rules"></div>
+    <div><button id="addRule">+ Добавить правило</button></div>
+  </section>
+  <section class="pane" data-pane="craft" hidden>
+    <h2>Мастерская</h2>
+    <p class="hint">Материалы падают с врагов и остаются после поражения. Если предмет уже есть, рецепт перекуёт его на уровень выше.</p>
+    <div class="list" id="craft"></div>
+  </section>
+  <section class="pane" data-pane="soul" hidden>
+    <h2>Перерождение</h2>
+    <div id="soul" class="list"></div>
+  </section>
+  <section class="pane" data-pane="log" hidden>
+    <h2>Журнал</h2>
+    <label for="vol">Громкость <input type="range" id="vol" min="0" max="100" step="5"></label>
+    <ol id="log"></ol>
+  </section>
 </div>
+
+<nav class="tabbar" aria-label="Разделы">
+  <div class="in" id="tabs">
+    <button class="tab" id="tab-map" data-tab="map"><span class="ic">▲</span>Карта</button>
+    <button class="tab" id="tab-equip" data-tab="equip"><span class="ic">†</span>Вещи</button>
+    <button class="tab" id="tab-rules" data-tab="rules"><span class="ic">»</span>Тактика</button>
+    <button class="tab" id="tab-craft" data-tab="craft"><span class="ic">¤</span>Крафт<i class="dot" id="dot-craft" hidden></i></button>
+    <button class="tab" id="tab-soul" data-tab="soul"><span class="ic">✦</span>Душа<i class="dot soul" id="dot-soul" hidden></i></button>
+    <button class="tab" id="tab-log" data-tab="log"><span class="ic">¶</span>Журнал</button>
+  </div>
+</nav>
 
 <script>
 (() => {
 const $ = s => document.querySelector(s);
-const COLS = 64, ROWS = 16, HX = 12, WALK = 7, KEY = 'dust-trail-save-v1';
+const ROWS = 16, HX = 10, WALK = 7, KEY = 'dust-trail-save-v1';
+let COLS = 64;
 const AGGRO = 20;   // дальше любого оружия героя, чтобы враги не стояли под обстрелом
 const sp = s => s.replace(/^\n/, '').split('\n');
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -156,10 +196,23 @@ const ri = (a, b) => Math.floor(rnd(a, b + 1));
 const pick = a => a[Math.floor(Math.random() * a.length)];
 const mod = (a, n) => ((a % n) + n) % n;
 const hash = n => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+const fmt = n => {
+  n = Math.round(n); const a = Math.abs(n);
+  if (a < 1e4) return String(n);
+  if (a < 1e6) return (n / 1e3).toFixed(a < 1e5 ? 1 : 0) + 'k';
+  if (a < 1e9) return (n / 1e6).toFixed(a < 1e7 ? 1 : 0) + 'M';
+  return (n / 1e9).toFixed(1) + 'B';
+};
+// вероятностное округление: 2.3 → 2 или 3, в среднем 2.3
+const sround = x => Math.floor(x) + (Math.random() < x - Math.floor(x) ? 1 : 0);
+
 const mult = l => Math.pow(1.35, l - 1);
 const xpNeed = l => Math.round(8 * Math.pow(l, 1.6));
-const upCost = l => Math.round(8 * Math.pow(1.55, l - 1));
-const POT_COST = 15, POT_MAX = 5;
+// Геометрия земель: всё, что делают враги, растёт степенью от номера земли
+const LAND = t => ({ hp: Math.pow(4, t - 1), dmg: Math.pow(3, t - 1), sh: Math.pow(3, t - 1), xp: Math.pow(2.6, t - 1) });
+// предмет, найденный или созданный в земле t, сразу дотягивает до её уровня
+const startLvl = t => 1 + 3 * (t - 1);
+const POT_COST = 15;
 
 // ---------- Предметы ----------
 const ITEMS = {
@@ -170,15 +223,19 @@ const ITEMS = {
   bow:    { name: 'Охотничий лук', kind: 'weapon', two: true, dmg: 2, cd: 1.1, range: 14, proj: '>', glyph: [')', '}'], desc: 'стреляет издалека, двуручный' },
   staff:  { name: 'Посох углей', kind: 'weapon', two: true, dmg: 3.2, cd: 2.2, range: 14, aoe: true, glyph: ['¡', '*'], desc: 'жжёт всех в радиусе, двуручный' },
   shield: { name: 'Дощатый щит', kind: 'off', block: .22, glyph: ['[', '['], desc: 'гасит часть урона' },
-  charm:  { name: 'Костяной оберег', kind: 'off', regen: .6, glyph: ['§', '§'], desc: 'понемногу лечит' },
+  charm:  { name: 'Костяной оберег', kind: 'off', regen: .02, glyph: ['§', '§'], desc: 'понемногу лечит' },
   spear:  { name: 'Копьё', kind: 'weapon', dmg: 3.4, cd: 1, range: 5, glyph: ['|', '—'], desc: 'достаёт дальше меча' },
   wand:   { name: 'Кристальный жезл', kind: 'weapon', dmg: 1.8, cd: .8, range: 12, proj: '•', glyph: ['!', '*'], desc: 'стреляет, одноручный' },
   venom:  { name: 'Жало топи', kind: 'weapon', dmg: 1.8, cd: .5, range: 2, poison: 1.5, glyph: ["'", '-'], desc: 'отравляет на 3 с' },
   spiked: { name: 'Шипастый щит', kind: 'off', block: .28, thorns: .35, glyph: ['#', '#'], desc: 'ранит тех, кто бьёт вплотную' },
   hammer: { name: 'Пепельный молот', kind: 'weapon', two: true, dmg: 16, cd: 2.4, range: 4, aoe: true, glyph: ['T', '='], desc: 'дробит всех рядом, двуручный' },
+  glaive: { name: 'Стеклянная глефа', kind: 'weapon', dmg: 5.5, cd: 1, range: 4, glyph: ['/', '='], desc: 'длинная и острая' },
+  mirror: { name: 'Зеркальный щит', kind: 'off', block: .3, reflect: .4, glyph: [']', ']'], desc: 'отражает часть снарядов обратно' },
+  starbow:{ name: 'Звёздный лук', kind: 'weapon', two: true, dmg: 5, cd: 1, range: 16, proj: '*', glyph: [')', '}'], desc: 'мощный выстрел, двуручный' },
+  voidblade:{ name: 'Клинок пустоты', kind: 'weapon', dmg: 4, cd: .6, range: 3, leech: .15, glyph: ['/', '~'], desc: 'возвращает 15% урона как ХП' },
 };
 
-// ---------- Враги ----------
+// ---------- Враги (базовые силы, земля умножает их по LAND) ----------
 const ENEMIES = {
   slime: { name: 'Слизень', hp: 6, dmg: 1, cd: 1.2, range: 2, speed: 3, xp: 2, sh: [1, 1], c: '#9ccf7a', spr: sp(String.raw`
  .--.
@@ -194,63 +251,95 @@ const ENEMIES = {
   /|__|\
  //    \\ `) },
 
-  bat: { name: 'Нетопырь', hp: 14, dmg: 3, cd: .9, range: 2, speed: 9, fly: true, xp: 5, sh: [2, 4], c: '#b494d6', spr: sp(String.raw`
+  bat: { name: 'Нетопырь', hp: 4, dmg: 1.2, cd: .9, range: 2, speed: 9, fly: true, xp: 2, sh: [1, 1], c: '#b494d6', spr: sp(String.raw`
 /\(oo)/\ `) },
-  skel: { name: 'Скелет', hp: 30, dmg: 5, cd: 1.3, range: 2, speed: 3, xp: 7, sh: [3, 5], c: '#e4e0d4', spr: sp(String.raw`
+  skel: { name: 'Скелет', hp: 9, dmg: 2, cd: 1.3, range: 2, speed: 3, xp: 3, sh: [1, 2], c: '#e4e0d4', spr: sp(String.raw`
  .-.
 (x x)
  /|\
  / \ `) },
-  spit: { name: 'Плевун', hp: 20, dmg: 4, cd: 1.6, range: 12, speed: 2, proj: '*', xp: 7, sh: [4, 6], c: '#d9c25a', spr: sp(String.raw`
+  spit: { name: 'Плевун', hp: 6, dmg: 1.5, cd: 1.6, range: 12, speed: 2, proj: '*', xp: 3, sh: [1, 2], c: '#d9c25a', spr: sp(String.raw`
  ,-,
 {o_o}`) },
-  worm: { name: 'Каменный червь', hp: 260, dmg: 9, cd: 2, range: 3, speed: 1.5, xp: 80, sh: [60, 60], c: '#a7a3b8', spr: sp(String.raw`
+  worm: { name: 'Каменный червь', hp: 70, dmg: 3.5, cd: 2, range: 3, speed: 1.5, xp: 30, sh: [20, 20], c: '#a7a3b8', spr: sp(String.raw`
    ____
   / oo \
  |  ww  |
  |      |~~
 /________\ `) },
 
-  drown: { name: 'Утопленник', hp: 80, dmg: 12, cd: 1.5, range: 2, speed: 2.5, xp: 15, sh: [8, 12], c: '#6fb3a3', spr: sp(String.raw`
+  drown: { name: 'Утопленник', hp: 10, dmg: 2, cd: 1.5, range: 2, speed: 2.5, xp: 3, sh: [1, 2], c: '#6fb3a3', spr: sp(String.raw`
  ~~
 (@@)
 /||\
  || `) },
-  gnat: { name: 'Гнус', hp: 35, dmg: 8, cd: .7, range: 2, speed: 11, fly: true, xp: 12, sh: [6, 10], c: '#c9b08a', spr: sp(String.raw`
+  gnat: { name: 'Гнус', hp: 4, dmg: 1.2, cd: .7, range: 2, speed: 11, fly: true, xp: 2, sh: [1, 1], c: '#c9b08a', spr: sp(String.raw`
 >-o<`) },
-  toad: { name: 'Жабень', hp: 55, dmg: 10, cd: 1.8, range: 13, speed: 2, proj: 'o', xp: 15, sh: [8, 12], c: '#8fbf5a', spr: sp(String.raw`
+  toad: { name: 'Жабень', hp: 7, dmg: 1.6, cd: 1.8, range: 13, speed: 2, proj: 'o', xp: 3, sh: [1, 2], c: '#8fbf5a', spr: sp(String.raw`
  @..@
 (----)`) },
-  witch: { name: 'Болотная ведьма', hp: 700, dmg: 18, cd: 1.6, range: 14, speed: 1, proj: '%', xp: 250, sh: [180, 180], c: '#b98bd0', spr: sp(String.raw`
+  witch: { name: 'Болотная ведьма', hp: 60, dmg: 3, cd: 1.6, range: 14, speed: 1, proj: '%', xp: 30, sh: [20, 20], c: '#b98bd0', spr: sp(String.raw`
    /\
   /__\
  ( oo )
   /||\%
  /_||_\ `) },
 
-  imp: { name: 'Огненный бес', hp: 150, dmg: 22, cd: 1, range: 2, speed: 8, xp: 35, sh: [20, 30], c: '#ec8a4e', spr: sp(String.raw`
+  imp: { name: 'Огненный бес', hp: 8, dmg: 1.8, cd: 1, range: 2, speed: 8, xp: 3, sh: [1, 2], c: '#ec8a4e', spr: sp(String.raw`
  ^ ^
 (>v<)
  /\ `) },
-  golem: { name: 'Пепельный голем', hp: 400, dmg: 40, cd: 2, range: 3, speed: 2, xp: 50, sh: [30, 40], c: '#a08f86', spr: sp(String.raw`
+  golem: { name: 'Пепельный голем', hp: 16, dmg: 3, cd: 2, range: 3, speed: 2, xp: 4, sh: [2, 3], c: '#a08f86', spr: sp(String.raw`
  [==]
 [o  o]
 |[  ]|
  |  | `) },
-  serpent: { name: 'Пепельный змей', hp: 2500, dmg: 55, cd: 1.8, range: 4, speed: 1.2, xp: 1000, sh: [800, 800], c: '#e2603e', spr: sp(String.raw`
+  serpent: { name: 'Пепельный змей', hp: 80, dmg: 4, cd: 1.8, range: 4, speed: 1.2, xp: 35, sh: [25, 25], c: '#e2603e', spr: sp(String.raw`
     __/\__
  ~~( O  O )>
    /  vv  \
   /  /  \  \
  ~~~~    ~~~~`) },
+
+  shardling: { name: 'Осколочник', hp: 9, dmg: 2.2, cd: 1.1, range: 2, speed: 5, xp: 3, sh: [1, 2], c: '#a9d6e5', spr: sp(String.raw`
+ /\/\
+<(**)>
+ /  \ `) },
+  mirage: { name: 'Мираж', hp: 5, dmg: 1.6, cd: 1.5, range: 11, speed: 3, fly: true, proj: '~', xp: 3, sh: [1, 2], c: '#d6c4f0', spr: sp(String.raw`
+ .~~.
+( <> )
+ '~~'`) },
+  colossus: { name: 'Стеклянный колосс', hp: 100, dmg: 4.5, cd: 2.2, range: 3, speed: 1.2, xp: 40, sh: [30, 30], c: '#bfe3ef', spr: sp(String.raw`
+   /\  /\
+  /  \/  \
+ | [o][o] |
+ |   /\   |
+/_/\____/\_\ `) },
+
+  voidling: { name: 'Пустотник', hp: 10, dmg: 2.5, cd: 1, range: 2, speed: 6, xp: 3, sh: [1, 2], c: '#9b8cd9', spr: sp(String.raw`
+ (\_/)
+(@ . @)
+ /   \ `) },
+  jelly: { name: 'Звёздная медуза', hp: 7, dmg: 2, cd: 1.4, range: 12, speed: 2.5, fly: true, proj: '+', xp: 3, sh: [1, 2], c: '#e39bd6', spr: sp(String.raw`
+ .--.
+(*  *)
+ ||||`) },
+  devourer: { name: 'Пожиратель звёзд', hp: 130, dmg: 5, cd: 1.6, range: 5, speed: 1, xp: 50, sh: [40, 40], c: '#c77dff', spr: sp(String.raw`
+  .-''''-.
+ / O    O \
+|   ____   |>
+ \ \VVVV/ /
+  '-....-'`) },
 };
 
 // ---------- Земли ----------
 const LOCS = [
   { id: 'forest', name: 'Тихий лес', tier: 1, len: 260, pool: ['slime', 'slime', 'wolf'], boss: 'oak', loot: ['dagger', 'shield', 'bow'], biome: 'forest' },
-  { id: 'cave', name: 'Гулкие пещеры', tier: 2, len: 300, pool: ['bat', 'skel', 'spit'], boss: 'worm', loot: ['axe', 'charm', 'bow', 'shield'], biome: 'cave' },
-  { id: 'swamp', name: 'Седая топь', tier: 3, len: 340, pool: ['drown', 'gnat', 'toad'], boss: 'witch', loot: ['staff', 'axe', 'charm'], biome: 'swamp' },
-  { id: 'ash', name: 'Пепельный пик', tier: 4, len: 380, pool: ['imp', 'golem', 'imp'], boss: 'serpent', loot: ['staff', 'axe', 'bow', 'shield', 'charm', 'dagger'], biome: 'ash' },
+  { id: 'cave', name: 'Гулкие пещеры', tier: 2, len: 290, pool: ['bat', 'skel', 'spit'], boss: 'worm', loot: ['axe', 'charm', 'bow', 'shield'], biome: 'cave' },
+  { id: 'swamp', name: 'Седая топь', tier: 3, len: 320, pool: ['drown', 'gnat', 'toad'], boss: 'witch', loot: ['staff', 'axe', 'charm'], biome: 'swamp' },
+  { id: 'ash', name: 'Пепельный пик', tier: 4, len: 350, pool: ['imp', 'golem', 'imp'], boss: 'serpent', loot: ['staff', 'axe', 'bow', 'shield', 'charm', 'dagger'], biome: 'ash' },
+  { id: 'glass', name: 'Стеклянная пустошь', tier: 5, len: 380, pool: ['shardling', 'mirage', 'shardling'], boss: 'colossus', loot: ['glaive', 'mirror', 'hammer'], biome: 'glass' },
+  { id: 'rift', name: 'Звёздный разлом', tier: 6, len: 420, pool: ['voidling', 'jelly', 'voidling'], boss: 'devourer', loot: ['starbow', 'voidblade', 'mirror'], biome: 'rift' },
 ];
 
 // ---------- Материалы и рецепты ----------
@@ -264,6 +353,10 @@ const MATS = {
   bog:      { name: 'Болотная смола', short: 'смола', tier: 3, c: '#6fb3a3' },
   ember:    { name: 'Тлеющий уголь', short: 'уголь', tier: 4, c: '#ec8a4e' },
   ashstone: { name: 'Пепельный камень', short: 'камень', tier: 4, c: '#a08f86' },
+  glass:    { name: 'Стеклянная пыль', short: 'стекло', tier: 5, c: '#a9d6e5' },
+  prism:    { name: 'Призма', short: 'призма', tier: 5, c: '#d6c4f0' },
+  void:     { name: 'Сгусток пустоты', short: 'пустота', tier: 6, c: '#9b8cd9' },
+  star:     { name: 'Звёздная пыль', short: 'звезда', tier: 6, c: '#e39bd6' },
 };
 // [материал, шанс, мин, макс]
 const DROPS = {
@@ -273,6 +366,8 @@ const DROPS = {
   drown: [['bog', .5, 1, 2], ['reed', .3, 1, 2]], gnat: [['reed', .5, 1, 2]], toad: [['bog', .5, 1, 2], ['goo', .4, 2, 3]],
   witch: [['bog', 1, 8, 10], ['reed', 1, 8, 10], ['crystal', 1, 4, 6]],
   imp: [['ember', .55, 1, 2]], golem: [['ashstone', .55, 1, 2]], serpent: [['ember', 1, 12, 15], ['ashstone', 1, 12, 15]],
+  shardling: [['glass', .55, 1, 2]], mirage: [['prism', .35, 1, 1], ['glass', .3, 1, 2]], colossus: [['glass', 1, 10, 14], ['prism', 1, 4, 6]],
+  voidling: [['void', .5, 1, 2]], jelly: [['star', .45, 1, 2]], devourer: [['void', 1, 12, 15], ['star', 1, 12, 15]],
 };
 const RECIPES = [
   { out: 'potion', need: { goo: 3, wood: 1 } },
@@ -286,8 +381,35 @@ const RECIPES = [
   { out: 'staff',  need: { bog: 4, crystal: 5, reed: 4 } },
   { out: 'spiked', need: { bone: 8, crystal: 3, bog: 3 } },
   { out: 'hammer', need: { ashstone: 8, ember: 6, crystal: 4 } },
+  { out: 'glaive', need: { glass: 8, prism: 3, ashstone: 4 } },
+  { out: 'mirror', need: { glass: 10, prism: 4, crystal: 6 } },
+  { out: 'starbow', need: { star: 8, void: 4, wood: 20 } },
+  { out: 'voidblade', need: { void: 8, star: 4, prism: 3 } },
 ];
 const recipeTier = r => Math.max(...Object.keys(r.need).map(m => MATS[m].tier));
+
+// ---------- Перерождение ----------
+const PERKS = {
+  might:  { name: 'Сила', max: 99, txt: l => `урон ×${Math.pow(1.25, l).toFixed(2)}` },
+  vigor:  { name: 'Живучесть', max: 99, txt: l => `ХП ×${Math.pow(1.25, l).toFixed(2)}` },
+  greed:  { name: 'Жадность', max: 99, txt: l => `осколки ×${Math.pow(1.3, l).toFixed(2)}` },
+  wisdom: { name: 'Мудрость', max: 99, txt: l => `опыт ×${Math.pow(1.3, l).toFixed(2)}` },
+  forage: { name: 'Собиратель', max: 20, txt: l => `материалы ×${Math.pow(1.3, l).toFixed(2)}` },
+  haste:  { name: 'Ловкость', max: 10, txt: l => `скорость атаки +${l * 6}%` },
+  smith:  { name: 'Кузнец', max: 8, txt: l => `улучшения дешевле на ${l * 8}%` },
+  flask:  { name: 'Походная сумка', max: 5, txt: l => `зелий в запасе: ${5 + l}` },
+};
+const perkCost = l => Math.ceil(Math.pow(1.7, l));
+const pl = k => save.perks[k] || 0;
+const P = {
+  dmg: () => Math.pow(1.25, pl('might')), hp: () => Math.pow(1.25, pl('vigor')),
+  sh: () => Math.pow(1.3, pl('greed')), xp: () => Math.pow(1.3, pl('wisdom')), mat: () => Math.pow(1.3, pl('forage')),
+  haste: () => 1 + .06 * pl('haste'), cost: () => 1 - .08 * pl('smith'),
+};
+const potMax = () => 5 + pl('flask');
+const upCost = l => Math.max(1, Math.round(8 * Math.pow(1.55, l - 1) * P.cost()));
+// искры за перерождение: растут втрое за каждую пройденную землю
+const sparksFor = best => best >= 2 ? Math.floor(3 * Math.pow(3, best - 1)) : 0;
 
 const BIOMES = {
   forest: { g: '_.__,_"__._,___', gc: '#7a9a5a', d: ' .  ,   .   :   ', dc: '#4d4637',
@@ -326,6 +448,22 @@ const BIOMES = {
 |##|`) }, { c: '#6b4b40', s: sp(String.raw`
   _
 _/ \_`) }] },
+  glass: { g: '_/\\_.-._-_', gc: '#9fc3cf', d: ' .  :  .   ', dc: '#3a5059',
+    deco: [{ c: '#6f97a6', s: sp(String.raw`
+  /\
+ /  \
+/_/\_\ `) }, { c: '#587884', s: sp(String.raw`
+ |\
+ | \
+_|__\ `) }] },
+  rift: { g: '=.=*=.==.=', gc: '#8a7fc0', d: ' *  .   .  ', dc: '#2e2850',
+    deco: [{ c: '#5b4f8f', s: sp(String.raw`
+ ___
+(___)
+ \ /`) }, { c: '#4a4078', s: sp(String.raw`
+  *
+ /|\
+/_|_\ `) }] },
 };
 
 const CAMP = {
@@ -349,8 +487,11 @@ const CAMP = {
 
 // ---------- Сохранение ----------
 const defaults = () => ({ shards: 0, xp: 0, lvl: 1, potions: 2, items: { sword: 1 }, main: 'sword', off: null,
-  unlocked: 1, cleared: {}, rules: [{ cond: 'hp_lt', val: 40, act: 'potion', item: 'sword' }], sel: 0, auto: false, speed: 1, kills: 0, log: [], mats: {}, sound: true, vol: 60 });
+  unlocked: 1, cleared: {}, rules: [{ cond: 'hp_lt', val: 40, act: 'potion', item: 'sword' }], sel: 0, auto: false, speed: 1, kills: 0,
+  log: [], mats: {}, sound: true, vol: 60, tab: 'map',
+  sparks: 0, perks: {}, rebirths: 0, lifeBest: 0, best: 0, seen: 1 });
 let save = defaults();
+
 // ---------- Telegram ----------
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
 // облако Telegram хранит до 4096 символов на ключ, поэтому журнал туда не пишем
@@ -360,11 +501,11 @@ function setupTelegram() {
   tg.ready();
   tg.expand();
   try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
-  try { tg.setHeaderColor('#161922'); tg.setBackgroundColor('#161922'); tg.setBottomBarColor && tg.setBottomBarColor('#161922'); } catch (e) {}
+  try { tg.setHeaderColor('#161922'); tg.setBackgroundColor('#161922'); tg.setBottomBarColor && tg.setBottomBarColor('#1d212c'); } catch (e) {}
 }
 const HAPTIC = { hurt: ['impact', 'light'], crit: ['impact', 'medium'], thud: ['impact', 'heavy'], boss: ['impact', 'heavy'],
   item: ['note', 'success'], craft: ['note', 'success'], level: ['note', 'success'], win: ['note', 'success'], lose: ['note', 'error'],
-  click: ['select'] };
+  rebirth: ['note', 'success'], click: ['select'] };
 const hapticLast = {};
 function haptic(name) {
   const h = tg && tg.HapticFeedback && HAPTIC[name];
@@ -387,9 +528,17 @@ function guardClosing(on) {
 }
 
 function readLocal() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function migrate() {
+  // сохранения до перерождений: лучшую землю восстанавливаем по пройденным
+  const cleared = LOCS.filter(l => save.cleared[l.id]).map(l => l.tier);
+  if (!save.lifeBest) save.lifeBest = cleared.length ? Math.max(...cleared) : 0;
+  save.best = Math.max(save.best || 0, save.lifeBest);
+  save.seen = Math.max(save.seen || 1, save.unlocked);
+  save.potions = Math.min(save.potions, potMax());
+}
 function load(done) {
   const local = readLocal();
-  const apply = s => { if (s) save = Object.assign(defaults(), s); done(); };
+  const apply = s => { if (s) save = Object.assign(defaults(), s); migrate(); done(); };
   if (!cloud) return apply(local);
   let finished = false;
   const fallback = setTimeout(() => { if (!finished) { finished = true; apply(local); } }, 2500);
@@ -417,21 +566,23 @@ function persist(now) {
   else if (!cloudT) cloudT = setTimeout(pushCloud, 4000);
 }
 
-const heroMax = () => 20 + 6 * save.lvl;
+const heroMax = () => Math.round(24 * Math.pow(1.11, save.lvl - 1) * P.hp());
+const lvlDmg = () => Math.pow(1.05, save.lvl - 1) * P.dmg();
 function stat(id) {
   const it = ITEMS[id], l = save.items[id] || 1;
   const s = { lvl: l };
-  if (it.dmg) s.dmg = it.dmg * mult(l) * (1 + .04 * (save.lvl - 1));
+  if (it.dmg) s.dmg = it.dmg * mult(l) * lvlDmg();
+  if (it.cd) s.cd = it.cd / P.haste();
   if (it.block) s.block = Math.min(.6, it.block + .05 * (l - 1));
-  if (it.regen) s.regen = it.regen * mult(l);
-  if (it.poison) s.poison = it.poison * mult(l) * (1 + .04 * (save.lvl - 1));
+  if (it.regen) s.regen = it.regen * (1 + .15 * (l - 1)) * heroMax();
+  if (it.poison) s.poison = it.poison * mult(l) * lvlDmg();
   return s;
 }
 
 // ---------- Журнал ----------
 function log(msg, cls = '') {
   save.log.unshift({ m: msg, c: cls });
-  if (save.log.length > 50) save.log.length = 50;
+  if (save.log.length > 60) save.log.length = 60;
   dirty.log = true;
 }
 
@@ -489,8 +640,10 @@ const SFX = (() => {
     swap:   () => { noise(.03, { freq: 5000, vol: .1 }); tone(700, .04, { vol: .04, delay: .03 }); },
     boss:   () => { tone(55, 1.4, { type: 'sawtooth', vol: .16, attack: .25 }); tone(58, 1.4, { type: 'sawtooth', vol: .1, attack: .25 }); },
     spit:   () => noise(.08, { freq: 1200, to: 400, q: 4, vol: .1 }),
+    reflect:() => tone(1500, .1, { type: 'triangle', to: 2400, vol: .1 }),
     step:   () => noise(.03, { type: 'lowpass', freq: 500, vol: .07 }),
     click:  () => tone(1000, .025, { vol: .035 }),
+    rebirth:() => { seq([[262, 0, .3], [392, .15, .3], [523, .3, .3], [784, .45, .9]], { type: 'sine', vol: .14 }); noise(1.2, { type: 'highpass', freq: 3000, vol: .05 }); },
   };
   const GAP = { hit: .05, step: .12, coin: .08, mat: .08, hurt: .06 };
   function play(name) {
@@ -509,20 +662,21 @@ document.addEventListener('click', e => { if (e.target.closest('button:not(:disa
 
 // ---------- Поход ----------
 let run = null, campT = 0;
-function mkEnemy(id, x, boss) {
-  const d = ENEMIES[id];
-  return Object.assign({}, d, { id, x, hp: d.hp, maxHp: d.hp, cdT: rnd(.3, d.cd), aggro: false, anim: 0, flash: 0,
+function mkEnemy(id, x, t, boss) {
+  const d = ENEMIES[id], S = LAND(t);
+  return Object.assign({}, d, { id, x, hp: d.hp * S.hp, maxHp: d.hp * S.hp, dmg: d.dmg * S.dmg, xp: Math.round(d.xp * S.xp),
+    sh: [d.sh[0] * S.sh, d.sh[1] * S.sh], cdT: rnd(.3, d.cd), aggro: false, anim: 0, flash: 0,
     seed: Math.random() * 9, w: Math.max(...d.spr.map(l => l.length)), boss: !!boss });
 }
 function startRun(i) {
   const loc = LOCS[i], en = [];
-  let x = 34;
+  let x = 30;
   while (x < loc.len - 34) {
     const n = ri(1, loc.tier > 1 ? 3 : 2);
-    for (let k = 0; k < n; k++) { const e = mkEnemy(pick(loc.pool), x); en.push(e); x += e.w + 2; }
+    for (let k = 0; k < n; k++) { const e = mkEnemy(pick(loc.pool), x, loc.tier); en.push(e); x += e.w + 2; }
     x += ri(16, 28);
   }
-  en.push(mkEnemy(loc.boss, loc.len, true));
+  en.push(mkEnemy(loc.boss, loc.len, loc.tier, true));
   run = { i, loc, x: 0, hp: heroMax(), max: heroMax(), en, proj: [], fx: [], sh: 0, t: 0, cd: { main: 0, off: 0 }, anim: { main: 0, off: 0 },
     potCd: 0, hurt: 0, over: null, overT: 0, main: save.main || 'fist', off: save.off, walk: 0, chest: null, swap: 0, mats: {} };
   log(`Поход в «${loc.name}» начат.`, 'hero');
@@ -536,9 +690,9 @@ function drink() {
   save.potions--; run.potCd = 3;
   const h = Math.round(run.max * .5);
   run.hp = Math.min(run.max, run.hp + h);
-  fx(run.x, 9, '+' + h, '#9ccf7a');
+  fx(run.x, 9, '+' + fmt(h), '#9ccf7a');
   SFX.play('potion');
-  log(`Выпито зелье: +${h} ХП. Осталось ${save.potions}.`, 'good');
+  log(`Выпито зелье: +${fmt(h)} ХП. Осталось ${save.potions}.`, 'good');
   dirty.equip = true;
 }
 
@@ -579,28 +733,29 @@ function hitEnemy(e, d, crit, poison) {
   if (e.hp <= 0) return;
   e.hp -= d; e.flash = .12; e.aggro = true;
   if (poison) { e.poison = poison; e.poisonT = 3; }
-  fx(e.x + 1, 7, (crit ? '!' : '') + Math.round(d), crit ? '#ffd27a' : '#ece6d6');
+  fx(e.x + 1, 7, (crit ? '!' : '') + fmt(d), crit ? '#ffd27a' : '#ece6d6');
   SFX.play(crit ? 'crit' : 'hit');
   if (e.hp <= 0) kill(e);
 }
 function kill(e) {
   save.kills++;
-  const s = ri(e.sh[0], e.sh[1]);
+  const s = Math.max(1, Math.round(rnd(e.sh[0], e.sh[1]) * P.sh()));
   run.sh += s;
-  gainXp(e.xp);
-  fx(e.x + 1, 6, '+' + s + '◆', '#e3a547');
+  gainXp(Math.round(e.xp * P.xp()));
+  fx(e.x + 1, 6, '+' + fmt(s) + '◆', '#e3a547');
   SFX.play('die'); SFX.play('coin');
-  for (const [m, chance, a, b] of DROPS[e.id] || []) if (Math.random() < chance) gainMat(m, ri(a, b), e);
-  if (!e.boss && Math.random() < .06) grant(pick(run.loc.loot), false);
+  for (const [m, chance, a, b] of DROPS[e.id] || []) if (Math.random() < chance) gainMat(m, sround(ri(a, b) * P.mat()), e);
+  if (!e.boss && Math.random() < .05) grant(pick(run.loc.loot), false);
   if (e.boss) {
     const fresh = run.loc.loot.filter(id => !save.items[id]);
     run.chest = fresh.length ? pick(fresh) : null;
     if (run.chest) grant(run.chest, true);
-    else { const b = 30 * run.loc.tier * run.loc.tier; run.sh += b; run.chestSh = b; }
+    else { const b = Math.round(30 * LAND(run.loc.tier).sh * P.sh()); run.sh += b; run.chestSh = b; }
     end('win');
   }
 }
 function gainMat(m, n, e) {
+  if (n <= 0) return;
   save.mats[m] = (save.mats[m] || 0) + n;
   run.mats[m] = (run.mats[m] || 0) + n;
   fx(e.x + 1, 4, `+${n} ${MATS[m].short}`, MATS[m].c);
@@ -608,15 +763,20 @@ function gainMat(m, n, e) {
   dirty.craft = true;
 }
 function grant(id, fromChest) {
+  const lv = startLvl(run.loc.tier);
   if (!save.items[id]) {
-    save.items[id] = 1;
-    log(`${fromChest ? 'В сундуке' : 'Найдено'}: ${ITEMS[id].name}!`, 'loot');
+    save.items[id] = lv;
+    log(`${fromChest ? 'В сундуке' : 'Найдено'}: ${ITEMS[id].name} ур.${lv}!`, 'loot');
     SFX.play('item');
-    if (run) fx(run.x, 5, ITEMS[id].name, '#e3a547');
+    fx(run.x, 5, ITEMS[id].name, '#e3a547');
+  } else if (save.items[id] < lv) {
+    save.items[id] = lv;
+    log(`Найден ${ITEMS[id].name} получше: теперь ур.${lv}.`, 'loot');
+    SFX.play('item');
   } else {
-    const b = 5 * run.loc.tier;
+    const b = Math.round(5 * LAND(run.loc.tier).sh);
     run.sh += b;
-    log(`Повторный ${ITEMS[id].name} разобран на ${b}◆.`, 'loot');
+    log(`Лишний ${ITEMS[id].name} разобран на ${fmt(b)}◆.`, 'loot');
   }
   dirty.equip = dirty.rules = true;
 }
@@ -624,9 +784,9 @@ function gainXp(n) {
   save.xp += n;
   while (save.xp >= xpNeed(save.lvl)) {
     save.xp -= xpNeed(save.lvl); save.lvl++;
-    if (run) { run.max = heroMax(); run.hp = Math.min(run.max, run.hp + 6); fx(run.x, 4, 'УРОВЕНЬ ' + save.lvl, '#86c5bd'); }
+    if (run) { const old = run.max; run.max = heroMax(); run.hp = Math.min(run.max, run.hp + (run.max - old)); fx(run.x, 4, 'УРОВЕНЬ ' + save.lvl, '#86c5bd'); }
     SFX.play('level');
-    log(`Герой достиг ${save.lvl} уровня. Макс. ХП ${heroMax()}.`, 'hero');
+    log(`Герой достиг ${save.lvl} уровня. Макс. ХП ${fmt(heroMax())}.`, 'hero');
     dirty.equip = true;
   }
 }
@@ -636,7 +796,7 @@ function heroHit(d, src) {
   if (o && o.block) d *= 1 - stat(run.off).block;
   run.hp -= d; run.hurt = .15;
   SFX.play('hurt');
-  fx(run.x + 1, 8, '-' + Math.max(1, Math.round(d)), '#de7a62');
+  fx(run.x + 1, 8, '-' + fmt(Math.max(1, d)), '#de7a62');
   if (run.hp <= 0) { run.hp = 0; end('lose'); }
 }
 function heroAttack(slot, id, target, near) {
@@ -647,7 +807,10 @@ function heroAttack(slot, id, target, near) {
   SFX.play(it.proj ? (id === 'wand' ? 'zap' : 'twang') : id === 'hammer' ? 'thud' : it.aoe ? 'fire' : 'swing');
   if (it.proj) run.proj.push({ x: run.x + 4, y: 11, v: 34, dmg: d, crit, target, glyph: it.proj, hero: true, c: '#ece6d6', poison: s.poison });
   else if (it.aoe) near.filter(e => dist(e) <= it.range).forEach(e => { hitEnemy(e, d, crit, s.poison); fx(e.x, 9, '*', '#ec8a4e'); });
-  else hitEnemy(target, d, crit, s.poison);
+  else {
+    hitEnemy(target, d, crit, s.poison);
+    if (it.leech) run.hp = Math.min(run.max, run.hp + d * it.leech);
+  }
 }
 
 function end(kind) {
@@ -658,17 +821,21 @@ function end(kind) {
   let gain = run.sh;
   if (kind === 'win') {
     save.cleared[loc.id] = (save.cleared[loc.id] || 0) + 1;
+    save.lifeBest = Math.max(save.lifeBest, loc.tier);
+    save.best = Math.max(save.best, loc.tier);
     if (save.unlocked < LOCS.length && run.i + 1 >= save.unlocked) {
       save.unlocked = run.i + 2;
+      save.seen = Math.max(save.seen, save.unlocked);
       log(`Открыта новая земля: «${LOCS[run.i + 1].name}».`, 'good');
     }
-    log(`${ENEMIES[loc.boss].name} повержен! Добыча: ${gain}◆.`, 'good');
-    if (run.i === LOCS.length - 1 && save.cleared[loc.id] === 1) log('Пепельный змей пал. Тропа пройдена, но добычу можно копить дальше.', 'loot');
+    log(`${ENEMIES[loc.boss].name} повержен! Добыча: ${fmt(gain)}◆.`, 'good');
+    if (loc.tier === 2 && save.rebirths === 0 && save.cleared[loc.id] === 1) log('Теперь доступно перерождение. Загляните во вкладку «Душа».', 'soul');
+    if (run.i === LOCS.length - 1 && save.cleared[loc.id] === 1) log('Пожиратель звёзд пал. Тропа пройдена до конца.', 'loot');
   } else if (kind === 'lose') {
     gain = Math.floor(run.sh / 2);
-    log(`Герой пал в «${loc.name}». Спасено ${gain}◆ из ${run.sh}.`, 'bad');
+    log(`Герой пал в «${loc.name}». Спасено ${fmt(gain)}◆ из ${fmt(run.sh)}.`, 'bad');
   } else {
-    log(`Отступление из «${loc.name}». Унесено ${gain}◆.`);
+    log(`Отступление из «${loc.name}». Унесено ${fmt(gain)}◆.`);
   }
   const ms = Object.entries(run.mats).map(([m, n]) => `${MATS[m].name} ×${n}`).join(', ');
   if (ms) log(`Материалы за поход: ${ms}.`, 'loot');
@@ -706,7 +873,8 @@ function step(dt) {
     run.cd[slot] -= dt; run.anim[slot] -= dt;
     if (front && dist(front) <= ITEMS[id].range && run.cd[slot] <= 0) {
       heroAttack(slot, id, front, near);
-      run.cd[slot] = ITEMS[id].cd * (slot === 'off' ? 1.15 : 1);
+      run.cd[slot] = stat(id).cd * (slot === 'off' ? 1.15 : 1);
+      if (run.over) return;
     }
   }
   if (!front || dist(front) > maxR) {
@@ -732,7 +900,7 @@ function step(dt) {
       e.cdT -= dt;
       if (dist(e) <= e.range && e.cdT <= 0) {
         e.cdT = e.cd; e.anim = .15;
-        if (e.proj) { run.proj.push({ x: e.x - 1, y: e.fly ? 8 : 11, v: -16, dmg: e.dmg, glyph: e.proj, hero: false, c: e.c }); SFX.play('spit'); }
+        if (e.proj) { run.proj.push({ x: e.x - 1, y: e.fly ? 8 : 11, v: -16, dmg: e.dmg, glyph: e.proj, hero: false, c: e.c, src: e }); SFX.play('spit'); }
         else heroHit(e.dmg, e);
         if (run.over) return;
       }
@@ -741,24 +909,37 @@ function step(dt) {
   }
 
   // снаряды
+  const added = [];
   for (const p of run.proj) {
     p.x += p.v * dt;
     if (p.hero) {
       if (p.target.hp <= 0) p.dead = true;
       else if (p.x >= p.target.x) { hitEnemy(p.target, p.dmg, p.crit, p.poison); p.dead = true; }
-    } else if (p.x <= run.x + 2) { heroHit(p.dmg); p.dead = true; if (run.over) return; }
+    } else if (p.x <= run.x + 2) {
+      p.dead = true;
+      const o = run.off && ITEMS[run.off];
+      if (o && o.reflect && p.src && p.src.hp > 0 && Math.random() < o.reflect) {
+        added.push({ x: run.x + 4, y: p.y, v: 34, dmg: p.dmg * 2, target: p.src, glyph: p.glyph, hero: true, c: '#bfe3ef' });
+        fx(run.x + 1, 8, 'отбито', '#bfe3ef'); SFX.play('reflect');
+      } else heroHit(p.dmg);
+      if (run.over) return;
+    }
+    if (run.over) return;
   }
-  run.proj = run.proj.filter(p => !p.dead);
+  run.proj = run.proj.filter(p => !p.dead).concat(added);
 }
 
 // ---------- Отрисовка ----------
 const cv = $('#cv'), ctx = cv.getContext('2d');
 let cw = 8, ch = 14, fs = 13, dpr = 1;
-const gch = new Array(COLS * ROWS), gco = new Array(COLS * ROWS);
+let gch = [], gco = [];
 let SCREEN = '#0e1016';
 function sizeCanvas() {
   dpr = window.devicePixelRatio || 1;
   const W = cv.clientWidth || 600;
+  // на узком экране показываем меньше клеток, зато крупнее
+  const cols = W < 560 ? 48 : 64;
+  if (cols !== COLS || !gch.length) { COLS = cols; gch = new Array(COLS * ROWS).fill(' '); gco = new Array(COLS * ROWS); }
   const cell = W / COLS;
   ctx.font = `100px 'IBM Plex Mono', monospace`;
   const ratio = ctx.measureText('M').width / 100 || .6;
@@ -814,6 +995,17 @@ function drawBiome(loc, cam, t) {
       const y = mod(hash(k + 9) * 12 + t * (1.5 + hash(k + 4) * 2), 12);
       put(x, y, k % 3 ? '.' : "'", k % 2 ? '#c4673f' : '#6b5550');
     }
+  } else if (loc.biome === 'glass') {
+    put(COLS - 8, 1, 'O', '#e8e2c8');
+    for (let y = 3; y <= 5; y++) for (let c = 0; c < COLS; c++) {
+      const wx = Math.floor(c + cam * .2);
+      if (hash(wx * 5 + y + Math.floor(t * 2)) > .94) put(c, y, '-', '#4d6670');
+    }
+  } else if (loc.biome === 'rift') {
+    for (let k = 0; k < 34; k++) {
+      const x = mod(hash(k) * COLS - cam * .1, COLS), y = Math.floor(hash(k + 7) * 10);
+      if (hash(k + Math.floor(t * 2) * .37) > .3) put(x, y, k % 5 ? '.' : '*', k % 3 ? '#6a5fa0' : '#e39bd6');
+    }
   }
   const pc = cam * .5, spc = 11;
   for (let i = Math.floor((pc - 12) / spc); i <= Math.ceil((pc + COLS) / spc); i++) {
@@ -824,12 +1016,11 @@ function drawBiome(loc, cam, t) {
   drawGround(B, cam);
 }
 
-function drawHero(t) {
+function drawHero() {
   const walking = run && !run.over && run.walk > 0 && (run.anim.main <= 0 && run.anim.off <= 0);
   const atk = run && (run.anim.main > 0 || run.anim.off > 0);
   const col = run && run.hurt > 0 ? '#de7a62' : '#86c5bd';
-  const dead = run && run.over === 'lose';
-  if (dead) { text(HX - 1, 12, '_o/\\_', col); return; }
+  if (run && run.over === 'lose') { text(HX - 1, 12, '_o/\\_', col); return; }
   const legs = ['/ \\', ' |\\', '/| '];
   const lf = walking ? legs[Math.floor(run.walk * 8) % 3] : '/ \\';
   text(HX, 10, ' o ', col);
@@ -861,15 +1052,15 @@ function drawBanner() {
   if (!run || !run.over) return;
   const L = [];
   if (run.over === 'win') {
-    L.push('ПОБЕДА', `+${run.banked} ◆`);
-    L.push(run.chest ? 'в сундуке: ' + ITEMS[run.chest].name : (run.chestSh ? `сундук: +${run.chestSh}◆` : ''));
-  } else if (run.over === 'lose') L.push('ГЕРОЙ ПАЛ', `спасено ${run.banked} ◆`, 'улучшите снаряжение');
-  else L.push('ОТСТУПЛЕНИЕ', `унесено ${run.banked} ◆`, '');
-  const w = Math.max(...L.map(s => s.length)) + 6, x = Math.floor((COLS - w) / 2), y = 2;
+    L.push('ПОБЕДА', `+${fmt(run.banked)} ◆`);
+    L.push(run.chest ? 'в сундуке: ' + ITEMS[run.chest].name : (run.chestSh ? `сундук: +${fmt(run.chestSh)}◆` : ''));
+  } else if (run.over === 'lose') L.push('ГЕРОЙ ПАЛ', `спасено ${fmt(run.banked)} ◆`, 'улучшите снаряжение');
+  else L.push('ОТСТУПЛЕНИЕ', `унесено ${fmt(run.banked)} ◆`, '');
+  const w = Math.min(COLS - 2, Math.max(...L.map(s => s.length)) + 6), x = Math.floor((COLS - w) / 2), y = 2;
   const col = run.over === 'win' ? '#e3a547' : run.over === 'lose' ? '#de7a62' : '#d9d3c3';
   for (let r = 0; r < L.length + 2; r++) for (let c = 0; c < w; c++) put(x + c, y + r, ' ', col);
   text(x, y, '+' + '-'.repeat(w - 2) + '+', col);
-  L.forEach((s, j) => { put(x, y + 1 + j, '|', col); put(x + w - 1, y + 1 + j, '|', col); text(x + Math.floor((w - s.length) / 2), y + 1 + j, s, j ? '#d9d3c3' : col); });
+  L.forEach((s, j) => { put(x, y + 1 + j, '|', col); put(x + w - 1, y + 1 + j, '|', col); text(x + Math.max(1, Math.floor((w - s.length) / 2)), y + 1 + j, s, j ? '#d9d3c3' : col); });
   text(x, y + L.length + 1, '+' + '-'.repeat(w - 2) + '+', col);
 }
 
@@ -878,14 +1069,15 @@ function drawCamp(t) {
     const x = Math.floor(hash(k) * COLS), y = Math.floor(hash(k + 50) * 8);
     if (hash(k + Math.floor(t * 1.5) * .01) > .25) put(x, y, hash(k + 3) > .8 ? '+' : '.', hash(k + 2) > .5 ? '#5a6074' : '#3d4352');
   }
-  put(52, 2, '(', '#cfc7b0'); put(53, 2, ')', '#cfc7b0');
+  put(COLS - 12, 2, '(', '#cfc7b0'); put(COLS - 11, 2, ')', '#cfc7b0');
   const B = BIOMES.forest;
-  [[3, 0], [40, 2], [56, 0]].forEach(([x, k]) => spr(x, 12, B.deco[k].s, B.deco[k].c));
-  spr(26, 12, CAMP.tent, '#9b8668');
-  spr(17, 12, CAMP.fire[Math.floor(t * 4) % 2], '#e3a547');
-  put(19, 9, Math.floor(t * 3) % 2 ? '.' : "'", '#6b5550');
+  [[1, 0], [COLS - 22, 2], [COLS - 9, 0]].forEach(([x, k]) => spr(x, 12, B.deco[k].s, B.deco[k].c));
+  spr(24, 12, CAMP.tent, '#9b8668');
+  spr(15, 12, CAMP.fire[Math.floor(t * 4) % 2], '#e3a547');
+  put(17, 9, Math.floor(t * 3) % 2 ? '.' : "'", '#6b5550');
   spr(HX - 1, 12, CAMP.hero, '#86c5bd');
   if (save.main) put(HX + 2, 12, '/', '#ece6d6');
+  if (save.rebirths) text(1, 1, '✦'.repeat(Math.min(save.rebirths, 10)), '#b99cf0');
   drawGround(B, 0);
 }
 
@@ -896,7 +1088,7 @@ function render() {
     drawBiome(run.loc, run.x, run.t);
     drawEnemies(run.t);
     for (const p of run.proj) put(p.x - run.x + HX, p.y, p.glyph, p.c);
-    drawHero(run.t);
+    drawHero();
     for (const f of run.fx) {
       const c = f.life < .35 ? '#6b6f7c' : f.c;
       text(Math.round(f.wx - run.x + HX - f.text.length / 2 + 1), f.y, f.text, c);
@@ -910,32 +1102,35 @@ function render() {
   for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
     const c = gch[y * COLS + x];
     if (c === ' ') continue;
-    if (c === '▀') { ctx.fillStyle = gco[y * COLS + x]; ctx.fillRect(x * cw, y * ch, cw + .5, ch * .5); continue; }
     ctx.fillStyle = gco[y * COLS + x];
+    if (c === '▀') { ctx.fillRect(x * cw, y * ch, cw + .5, ch * .5); continue; }
     ctx.fillText(c, x * cw, y * ch + ch / 2);
   }
 }
 
 // ---------- Интерфейс ----------
-const dirty = { all: true, log: true, equip: true, rules: true, map: true, craft: true };
+const dirty = { all: true, log: true, equip: true, rules: true, map: true, craft: true, soul: true };
 const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+// перерисовываем панель только когда её содержимое изменилось, чтобы не сбивать фокус и нажатия
+function setHTML(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } }
 
 function hud() {
   const hp = run ? run.hp : heroMax(), max = run ? run.max : heroMax();
   $('#hpFill').style.width = (hp / max * 100) + '%';
-  $('#hpTxt').textContent = `${Math.ceil(hp)}/${max}`;
+  $('#hpTxt').textContent = `${fmt(Math.ceil(hp))}/${fmt(max)}`;
   const p = run ? Math.min(1, run.x / run.loc.len) : 0;
   $('#progFill').style.width = p * 100 + '%';
-  $('#progTxt').textContent = run ? `${Math.round(p * 100)}%  +${run.sh}◆` : '—';
-  $('#pots').textContent = `зелья ${save.potions}/${POT_MAX}`;
+  $('#progTxt').textContent = run ? `${Math.round(p * 100)}%  +${fmt(run.sh)}◆` : '—';
+  $('#pots').textContent = `зелья ${save.potions}/${potMax()}`;
   const boss = run && !run.over && run.en.find(e => e.boss && e.hp > 0 && dist(e) < 40);
   $('#bossBar').hidden = !boss;
   if (boss) {
     $('#bossName').textContent = boss.name;
     $('#bossFill').style.width = (boss.hp / boss.maxHp * 100) + '%';
-    $('#bossTxt').textContent = `${Math.ceil(boss.hp)}/${boss.maxHp}`;
+    $('#bossTxt').textContent = `${fmt(Math.ceil(boss.hp))}/${fmt(boss.maxHp)}`;
   }
-  $('#stats').innerHTML = `<span>уровень <b>${save.lvl}</b></span><span>опыт <b>${save.xp}/${xpNeed(save.lvl)}</b></span><span class="sh">осколки <b>${save.shards}◆</b></span><span>побеждено <b>${save.kills}</b></span>`;
+  setHTML($('#stats'), `<span>ур. <b>${save.lvl}</b></span><span>опыт <b>${fmt(save.xp)}/${fmt(xpNeed(save.lvl))}</b></span><span class="sh">осколки <b>${fmt(save.shards)}◆</b></span>` +
+    (save.rebirths || save.sparks ? `<span class="sp">искры <b>${fmt(save.sparks)}✦</b></span>` : ''));
 }
 
 function renderControls() {
@@ -948,31 +1143,33 @@ function renderControls() {
   $('#snd').setAttribute('aria-pressed', save.sound);
   $('#snd').classList.toggle('on', save.sound);
   $('#vol').value = save.vol; $('#vol').disabled = !save.sound;
-  $('#status').textContent = run ? `${run.loc.name}` : `Привал. Цель: «${LOCS[save.sel].name}»`;
+  $('#status').textContent = run ? run.loc.name : `Привал · ${LOCS[save.sel].name}`;
+  document.querySelectorAll('.pane').forEach(p => { p.hidden = p.dataset.pane !== save.tab; });
+  document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === save.tab; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
 }
 
 function renderMap() {
-  $('#map').innerHTML = LOCS.map((l, i) => {
-    const locked = i >= save.unlocked, cl = save.cleared[l.id] || 0;
-    if (locked) return `<div class="loc locked"><span class="mark">·</span><span class="t">???</span><span class="tier">круг ${l.tier}</span><span class="sub">Победите босса предыдущей земли</span></div>`;
+  setHTML($('#map'), LOCS.map((l, i) => {
+    const locked = i >= save.unlocked, cl = save.cleared[l.id] || 0, S = LAND(l.tier);
+    if (locked) return `<div class="loc locked"><span class="mark">·</span><span class="t">${l.tier <= save.best + 1 ? l.name : '???'}</span><span class="tier">земля ${l.tier}</span><span class="sub">Победите босса предыдущей земли</span></div>`;
     return `<button class="loc ${i === save.sel ? 'sel' : ''}" id="loc-${l.id}" data-loc="${i}">
-      <span class="mark">${i === save.sel ? '▶' : '·'}</span><span class="t">${l.name}</span><span class="tier">круг ${l.tier}</span>
+      <span class="mark">${i === save.sel ? '▶' : '·'}</span><span class="t">${l.name}</span><span class="tier">ХП ×${fmt(S.hp)} · урон ×${fmt(S.dmg)}</span>
       <span class="sub">Хозяин: ${ENEMIES[l.boss].name} · ${cl ? 'пройдено ×' + cl : 'не пройдено'}</span></button>`;
-  }).join('');
+  }).join(''));
 }
 
 function itemLine(id) {
   const it = ITEMS[id], s = stat(id);
-  if (it.kind === 'weapon') return `урон ${s.dmg.toFixed(1)}${s.poison ? ` + яд ${s.poison.toFixed(1)}/с` : ''} · раз в ${it.cd}с · дальность ${it.range} · ${it.desc}`;
-  if (it.block) return `блок ${Math.round(s.block * 100)}%${it.thorns ? ` · шипы ${Math.round(it.thorns * 100)}%` : ''} · ${it.desc}`;
-  return `+${s.regen.toFixed(1)} ХП/с · ${it.desc}`;
+  if (it.kind === 'weapon') return `урон ${fmt(s.dmg)}${s.poison ? ` + яд ${fmt(s.poison)}/с` : ''} · раз в ${s.cd.toFixed(2)}с · дальность ${it.range} · ${it.desc}`;
+  if (it.block) return `блок ${Math.round(s.block * 100)}%${it.thorns ? ` · шипы ${Math.round(it.thorns * 100)}%` : ''}${it.reflect ? ` · отражение ${Math.round(it.reflect * 100)}%` : ''} · ${it.desc}`;
+  return `+${fmt(s.regen)} ХП/с · ${it.desc}`;
 }
 function renderEquip() {
   const m = save.main, o = save.off, mTwo = m && ITEMS[m].two;
   let h = `<div class="slots">
     <span class="k">рука</span><span>${m ? esc(ITEMS[m].name) + ' <span class="hint">ур.' + save.items[m] + '</span>' : 'кулаки'}</span>${m ? '<button id="un-main" data-un="main">Снять</button>' : '<span></span>'}
     <span class="k">2-я рука</span><span>${mTwo ? '<span class="hint">занята двуручным</span>' : o ? esc(ITEMS[o].name) + ' <span class="hint">ур.' + save.items[o] + '</span>' : '—'}</span>${o ? '<button id="un-off" data-un="off">Снять</button>' : '<span></span>'}
-    <span class="k">зелья</span><span>${save.potions}/${POT_MAX} <span class="hint">лечат 50%</span></span><button id="buyPot" data-buy="1" ${save.shards < POT_COST || save.potions >= POT_MAX ? 'disabled' : ''}>Купить ${POT_COST}◆</button>
+    <span class="k">зелья</span><span>${save.potions}/${potMax()} <span class="hint">лечат 50%</span></span><button id="buyPot" data-buy="1" ${save.shards < POT_COST || save.potions >= potMax() ? 'disabled' : ''}>Купить ${POT_COST}◆</button>
   </div>`;
   h += Object.keys(ITEMS).filter(id => save.items[id] && !ITEMS[id].hidden).map(id => {
     const it = ITEMS[id], l = save.items[id], cost = upCost(l), eq = id === m || id === o;
@@ -982,43 +1179,11 @@ function renderEquip() {
       if (id !== m) acts += `<button id="eq-${id}" data-eq="${id}" data-slot="main">В руку</button>`;
       if (id !== o) acts += `<button id="eq2-${id}" data-eq="${id}" data-slot="off">Во 2-ю</button>`;
     } else if (id !== o) acts += `<button id="eq2-${id}" data-eq="${id}" data-slot="off">Во 2-ю</button>`;
-    acts += `<button id="up-${id}" data-up="${id}" ${save.shards < cost ? 'disabled' : ''}>Улучшить ${cost}◆</button>`;
+    acts += `<button id="up-${id}" data-up="${id}" ${save.shards < cost ? 'disabled' : ''}>↑ ${fmt(cost)}◆</button>`;
     return `<div class="item ${eq ? 'eq' : ''}"><span class="n">${esc(it.name)} <em>ур.${l}</em>${eq ? '<span class="tag">в руках</span>' : ''}</span>
       <span class="d">${itemLine(id)}</span><div class="acts">${acts}</div></div>`;
   }).join('');
   setHTML($('#equip'), h);
-}
-
-// перерисовываем панель только когда её содержимое изменилось, чтобы не сбивать фокус и наведение
-function setHTML(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } }
-
-const canCraft = r => Object.entries(r.need).every(([m, n]) => (save.mats[m] || 0) >= n) && (r.out !== 'potion' || save.potions < POT_MAX);
-function renderCraft() {
-  const have = Object.keys(MATS).filter(m => save.mats[m]);
-  let h = `<div class="mats">${have.length ? have.map(m => `<span class="mat" style="--mc:${MATS[m].c}">${MATS[m].name} <b>${save.mats[m]}</b></span>`).join('')
-    : '<span class="hint">Пока пусто. Отправляйтесь в поход.</span>'}</div>`;
-  const open = RECIPES.filter(r => recipeTier(r) <= save.unlocked), hidden = RECIPES.length - open.length;
-  h += open.map(r => {
-    const i = RECIPES.indexOf(r), pot = r.out === 'potion', lvl = !pot && save.items[r.out];
-    const title = pot ? 'Зелье лечения' : ITEMS[r.out].name;
-    const note = pot ? `лечит 50% · сейчас ${save.potions}/${POT_MAX}` : lvl ? `уже есть · перековка до ур.${lvl + 1}` : ITEMS[r.out].desc;
-    const need = Object.entries(r.need).map(([m, n]) => `<span class="${(save.mats[m] || 0) >= n ? '' : 'miss'}">${MATS[m].name} ${save.mats[m] || 0}/${n}</span>`).join(' · ');
-    return `<div class="item recipe"><span class="n">${esc(title)}${lvl ? ` <em>ур.${lvl}</em>` : ''}</span><span class="d">${note}</span><span class="d need">${need}</span>
-      <div class="acts"><button id="cr-${i}" data-craft="${i}" ${canCraft(r) ? '' : 'disabled'}>${pot ? 'Сварить' : lvl ? 'Перековать' : 'Создать'}</button></div></div>`;
-  }).join('');
-  if (hidden) h += `<p class="hint" style="margin:0">Ещё рецептов: ${hidden}. Они откроются в новых землях.</p>`;
-  setHTML($('#craft'), h);
-}
-function craft(i) {
-  const r = RECIPES[i];
-  if (!r || !canCraft(r)) return;
-  for (const [m, n] of Object.entries(r.need)) save.mats[m] -= n;
-  SFX.play(r.out === 'potion' ? 'potion' : 'craft');
-  if (r.out === 'potion') { save.potions++; log('Сварено зелье лечения.', 'good'); }
-  else if (save.items[r.out]) { save.items[r.out]++; log(`${ITEMS[r.out].name} перекован до ур.${save.items[r.out]}.`, 'loot'); }
-  else { save.items[r.out] = 1; log(`Создан предмет: ${ITEMS[r.out].name}!`, 'loot'); }
-  dirty.craft = dirty.equip = dirty.rules = true;
-  persist();
 }
 
 const CONDS = { hp_lt: 'ХП ниже, %', hp_gt: 'ХП выше, %', foes_ge: 'врагов рядом ≥', near: 'враг ближе', far: 'враг дальше', boss: 'рядом босс', always: 'всегда' };
@@ -1026,20 +1191,98 @@ const NEEDS = { hp_lt: 1, hp_gt: 1, foes_ge: 1, near: 1, far: 1 };
 const ACTS = { potion: 'выпить зелье', equip: 'взять' };
 function renderRules() {
   const owned = Object.keys(ITEMS).filter(id => save.items[id] && !ITEMS[id].hidden);
-  $('#rules').innerHTML = save.rules.length ? save.rules.map((r, i) => `<div class="rule" data-i="${i}">
+  setHTML($('#rules'), save.rules.length ? save.rules.map((r, i) => `<div class="rule" data-i="${i}">
     <span class="kw">если</span>
     <select id="r${i}-cond" data-f="cond" aria-label="Условие">${Object.entries(CONDS).map(([k, v]) => `<option value="${k}" ${k === r.cond ? 'selected' : ''}>${v}</option>`).join('')}</select>
     ${NEEDS[r.cond] ? `<input id="r${i}-val" type="number" data-f="val" min="0" max="100" value="${r.val}" aria-label="Значение">` : ''}
     <span class="kw">→</span>
     <select id="r${i}-act" data-f="act" aria-label="Действие">${Object.entries(ACTS).map(([k, v]) => `<option value="${k}" ${k === r.act ? 'selected' : ''}>${v}</option>`).join('')}</select>
-    ${r.act === 'equip' ? `<select id="r${i}-item" data-f="item" aria-label="Предмет">${owned.map(id => `<option value="${id}" ${id === r.item ? 'selected' : ''}>${esc(ITEMS[id].name)}</option>`).join('')}</select>` : ''}
+    ${r.act === 'equip' ? `<select id="r${i}-item" data-f="item" aria-label="Предмет">${owned.map(id => `<option value="${id}" ${id === r.item ? 'selected' : ''}>${esc(ITEMS[id].name)}</option>`).join('')}${save.items[r.item] ? '' : `<option value="${r.item}" selected disabled>нет предмета</option>`}</select>` : ''}
     <span class="sp"></span>
     <button id="r${i}-up" data-r="up" aria-label="Выше" ${i ? '' : 'disabled'}>↑</button><button id="r${i}-del" data-r="del" aria-label="Удалить">✕</button>
-  </div>`).join('') : '<p class="hint" style="margin:0">Правил нет: герой бьёт тем, что в руках, и не пьёт зелья.</p>';
+  </div>`).join('') : '<p class="hint">Правил нет: герой бьёт тем, что в руках, и не пьёт зелья.</p>');
+}
+
+const canCraft = r => Object.entries(r.need).every(([m, n]) => (save.mats[m] || 0) >= n) && (r.out !== 'potion' || save.potions < potMax());
+function renderCraft() {
+  const have = Object.keys(MATS).filter(m => save.mats[m]);
+  let h = `<div class="mats">${have.length ? have.map(m => `<span class="mat" style="--mc:${MATS[m].c}">${MATS[m].name} <b>${save.mats[m]}</b></span>`).join('')
+    : '<span class="hint">Пока пусто. Отправляйтесь в поход.</span>'}</div>`;
+  const open = RECIPES.filter(r => recipeTier(r) <= save.seen), hidden = RECIPES.length - open.length;
+  h += open.map(r => {
+    const i = RECIPES.indexOf(r), pot = r.out === 'potion', lvl = !pot && save.items[r.out], base = startLvl(recipeTier(r));
+    const title = pot ? 'Зелье лечения' : ITEMS[r.out].name;
+    const next = lvl ? Math.max(lvl + 1, base) : base;
+    const note = pot ? `лечит 50% · сейчас ${save.potions}/${potMax()}` : lvl ? `уже есть · перековка до ур.${next}` : `${ITEMS[r.out].desc} · ур.${base}`;
+    const need = Object.entries(r.need).map(([m, n]) => `<span class="${(save.mats[m] || 0) >= n ? '' : 'miss'}">${MATS[m].name} ${save.mats[m] || 0}/${n}</span>`).join(' · ');
+    return `<div class="item recipe"><span class="n">${esc(title)}${lvl ? ` <em>ур.${lvl}</em>` : ''}</span><span class="d">${note}</span><span class="d need">${need}</span>
+      <div class="acts"><button id="cr-${i}" data-craft="${i}" ${canCraft(r) ? '' : 'disabled'}>${pot ? 'Сварить' : lvl ? 'Перековать' : 'Создать'}</button></div></div>`;
+  }).join('');
+  if (hidden) h += `<p class="hint">Ещё рецептов: ${hidden}. Они откроются в новых землях.</p>`;
+  setHTML($('#craft'), h);
+}
+function craft(i) {
+  const r = RECIPES[i];
+  if (!r || !canCraft(r)) return;
+  for (const [m, n] of Object.entries(r.need)) save.mats[m] -= n;
+  SFX.play(r.out === 'potion' ? 'potion' : 'craft');
+  const base = startLvl(recipeTier(r));
+  if (r.out === 'potion') { save.potions++; log('Сварено зелье лечения.', 'good'); }
+  else if (save.items[r.out]) { save.items[r.out] = Math.max(save.items[r.out] + 1, base); log(`${ITEMS[r.out].name} перекован до ур.${save.items[r.out]}.`, 'loot'); }
+  else { save.items[r.out] = base; log(`Создан предмет: ${ITEMS[r.out].name} ур.${base}!`, 'loot'); }
+  dirty.craft = dirty.equip = dirty.rules = true;
+  persist();
+}
+
+let rebirthArm = 0;
+function renderSoul() {
+  const gain = sparksFor(save.lifeBest), armed = rebirthArm > performance.now();
+  const bestName = save.lifeBest ? LOCS[save.lifeBest - 1].name : 'ещё ни одной';
+  let h = `<div class="soulbox">
+    <div><span>искры</span><b>${fmt(save.sparks)}✦</b></div>
+    <div><span>перерождений</span><b>${save.rebirths}</b></div>
+    <div><span>за перерождение</span><b>+${fmt(gain)}✦</b></div>
+  </div>
+  <p class="hint">Перерождение начинает жизнь заново: уровень, осколки, вещи, материалы и открытые земли сбрасываются. Остаются искры, умения ниже, тактика и рецепты. Искр тем больше, чем дальше вы прошли: каждая земля даёт втрое больше.</p>
+  <p class="hint">Лучшая пройденная земля в этой жизни: <b style="color:var(--fg)">${bestName}</b>.${gain ? '' : ' Чтобы переродиться, победите хозяина Гулких пещер.'}</p>
+  <div><button id="rebirth" class="soul ${armed ? 'armed' : ''}" data-rebirth="1" ${gain && !run ? '' : 'disabled'}>${armed ? `Точно? Нажмите ещё раз` : `Переродиться за +${fmt(gain)}✦`}</button>${run && gain ? ' <span class="hint">сначала закончите поход</span>' : ''}</div>`;
+  h += Object.entries(PERKS).map(([k, p]) => {
+    const l = pl(k), cost = perkCost(l), maxed = l >= p.max;
+    return `<div class="item perk"><span class="n">${p.name} <em>ур.${l}</em></span><span class="d">${p.txt(l)}${maxed ? ' · максимум' : ` → ${p.txt(l + 1)}`}</span>
+      <div class="acts"><button id="pk-${k}" data-perk="${k}" ${maxed || save.sparks < cost ? 'disabled' : ''}>${maxed ? 'макс.' : fmt(cost) + '✦'}</button></div></div>`;
+  }).join('');
+  setHTML($('#soul'), h);
+}
+function rebirth() {
+  const gain = sparksFor(save.lifeBest);
+  if (!gain || run) return;
+  if (rebirthArm < performance.now()) { rebirthArm = performance.now() + 4000; dirty.soul = true; return; }
+  rebirthArm = 0;
+  save.sparks += gain; save.rebirths++;
+  Object.assign(save, { shards: 0, xp: 0, lvl: 1, potions: 2 + pl('flask'), items: { sword: 1 }, main: 'sword', off: null,
+    unlocked: 1, cleared: {}, mats: {}, lifeBest: 0, sel: 0 });
+  SFX.play('rebirth');
+  log(`Перерождение №${save.rebirths}. Получено ${fmt(gain)}✦. Тропа начинается заново.`, 'soul');
+  dirty.all = true;
+  persist(true);
+}
+function buyPerk(k) {
+  const l = pl(k), cost = perkCost(l);
+  if (l >= PERKS[k].max || save.sparks < cost) return;
+  save.sparks -= cost; save.perks[k] = l + 1;
+  SFX.play('level');
+  log(`Умение «${PERKS[k].name}» ур.${l + 1}: ${PERKS[k].txt(l + 1)}.`, 'soul');
+  if (run && k === 'vigor') { const old = run.max; run.max = heroMax(); run.hp += run.max - old; }
+  dirty.all = true; persist();
 }
 
 function renderLog() {
-  $('#log').innerHTML = save.log.map(e => `<li class="${e.c}">${esc(e.m)}</li>`).join('');
+  setHTML($('#log'), save.log.map(e => `<li class="${e.c}">${esc(e.m)}</li>`).join(''));
+}
+
+function updateBadges() {
+  $('#dot-craft').hidden = !RECIPES.some(r => recipeTier(r) <= save.seen && canCraft(r));
+  $('#dot-soul').hidden = !(Object.entries(PERKS).some(([k, p]) => pl(k) < p.max && save.sparks >= perkCost(pl(k))) || (sparksFor(save.lifeBest) && !save.rebirths));
 }
 
 function equip(id, slot) {
@@ -1060,6 +1303,11 @@ $('#auto').addEventListener('change', e => { save.auto = e.target.checked; persi
 $('#snd').addEventListener('click', () => { save.sound = !save.sound; dirty.all = true; persist(); });
 $('#vol').addEventListener('input', e => { save.vol = +e.target.value; SFX.setVol(); persist(); });
 $('#vol').addEventListener('change', () => SFX.play('coin'));
+$('#tabs').addEventListener('click', e => {
+  const b = e.target.closest('[data-tab]'); if (!b) return;
+  save.tab = b.dataset.tab; dirty.all = true; persist();
+  window.scrollTo({ top: 0 });
+});
 $('#map').addEventListener('click', e => {
   const b = e.target.closest('[data-loc]'); if (!b) return;
   save.sel = +b.dataset.loc; dirty.map = true; dirty.all = true; persist();
@@ -1073,7 +1321,7 @@ $('#equip').addEventListener('click', e => {
     if (save.shards >= c) { save.shards -= c; save.items[id]++; SFX.play('craft'); log(`${ITEMS[id].name} улучшен до ур.${save.items[id]}.`, 'loot'); }
     dirty.equip = true;
   } else if (b.dataset.buy) {
-    if (save.shards >= POT_COST && save.potions < POT_MAX) { save.shards -= POT_COST; save.potions++; SFX.play('coin'); }
+    if (save.shards >= POT_COST && save.potions < potMax()) { save.shards -= POT_COST; save.potions++; SFX.play('coin'); }
     dirty.equip = true;
   }
   persist();
@@ -1093,19 +1341,25 @@ $('#rules').addEventListener('click', e => {
   else if (i > 0) [save.rules[i - 1], save.rules[i]] = [save.rules[i], save.rules[i - 1]];
   dirty.rules = true; persist();
 });
-$('#craft').addEventListener('click', e => {
-  const b = e.target.closest('[data-craft]'); if (b && !b.disabled) craft(+b.dataset.craft);
-});
 $('#addRule').addEventListener('click', () => {
   save.rules.push({ cond: 'foes_ge', val: 3, act: 'equip', item: save.main || 'sword' });
   dirty.rules = true; persist();
 });
+$('#craft').addEventListener('click', e => {
+  const b = e.target.closest('[data-craft]'); if (b && !b.disabled) craft(+b.dataset.craft);
+});
+$('#soul').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (b.dataset.rebirth) rebirth();
+  else if (b.dataset.perk) buyPerk(b.dataset.perk);
+});
 
 function refreshPanels() {
-  if (dirty.all) { dirty.map = dirty.equip = dirty.rules = dirty.log = dirty.craft = true; renderControls(); dirty.all = false; }
+  if (dirty.all) { dirty.map = dirty.equip = dirty.rules = dirty.log = dirty.craft = dirty.soul = true; renderControls(); updateBadges(); dirty.all = false; }
   if (dirty.map) { renderMap(); dirty.map = false; }
   if (dirty.equip) { renderEquip(); dirty.equip = false; }
   if (dirty.craft) { renderCraft(); dirty.craft = false; }
+  if (dirty.soul) { renderSoul(); dirty.soul = false; }
   if (dirty.rules) { renderRules(); dirty.rules = false; }
   if (dirty.log) { renderLog(); dirty.log = false; }
 }
@@ -1117,7 +1371,8 @@ function frame(ts) {
   for (let i = 0; i < save.speed; i++) step(dt);
   saveT += dt; equipT += dt;
   if (saveT > 3) { saveT = 0; persist(); }
-  if (equipT > .5) { equipT = 0; dirty.equip = dirty.craft = true; }   // кнопки улучшений и крафта зависят от запасов
+  // кнопки улучшений, крафта и умений зависят от запасов
+  if (equipT > .5) { equipT = 0; dirty.equip = dirty.craft = dirty.soul = true; updateBadges(); }
   render(); hud(); refreshPanels();
   guardClosing(!!(run && !run.over));
   requestAnimationFrame(frame);

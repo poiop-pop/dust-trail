@@ -267,24 +267,28 @@ const POT_COST = 15;
 // ---------- Предметы ----------
 const ITEMS = {
   fist:   { name: 'Кулаки', kind: 'weapon', dmg: 1, cd: .7, range: 2, glyph: ['', ''], hidden: true },
-  sword:  { name: 'Ржавый меч', kind: 'weapon', dmg: 3, cd: .8, range: 3, glyph: ['/', '—'], desc: 'ближний бой' },
+  sword:  { name: 'Ржавый меч', kind: 'weapon', dmg: 3.3, cd: .8, range: 3, glyph: ['/', '—'], desc: 'ближний бой' },
   dagger: { name: 'Кинжал', kind: 'weapon', dmg: 1.4, cd: .35, range: 2, glyph: ["'", '-'], desc: 'частые уколы' },
   axe:    { name: 'Колун', kind: 'weapon', dmg: 7, cd: 1.6, range: 3, glyph: ['P', '='], desc: 'тяжёлый: втрое сильнее по щитам' },
-  bow:    { name: 'Охотничий лук', kind: 'weapon', two: true, dmg: 2, cd: 1.1, range: 14, proj: '>', glyph: [')', '}'], desc: 'стреляет издалека, двуручный' },
+  bow:    { name: 'Охотничий лук', kind: 'weapon', two: true, dmg: 2.4, cd: 1.1, range: 14, proj: '>', glyph: [')', '}'], desc: 'стреляет издалека, двуручный' },
   staff:  { name: 'Посох углей', kind: 'weapon', two: true, dmg: 3.2, cd: 2.2, range: 14, aoe: true, glyph: ['¡', '*'], desc: 'жжёт всех в радиусе, двуручный' },
   shield: { name: 'Дощатый щит', kind: 'off', block: .22, glyph: ['[', '['], desc: 'гасит часть урона' },
   charm:  { name: 'Костяной оберег', kind: 'off', regen: .02, glyph: ['§', '§'], desc: 'понемногу лечит' },
-  spear:  { name: 'Копьё', kind: 'weapon', dmg: 3.4, cd: 1, range: 5, glyph: ['|', '—'], desc: 'достаёт дальше меча' },
+  spear:  { name: 'Копьё', kind: 'weapon', dmg: 4, cd: 1, range: 5, glyph: ['|', '—'], desc: 'достаёт дальше меча' },
   wand:   { name: 'Кристальный жезл', kind: 'weapon', dmg: 1.8, cd: .8, range: 12, proj: '•', glyph: ['!', '*'], desc: 'стреляет, одноручный' },
   venom:  { name: 'Жало топи', kind: 'weapon', dmg: 1.8, cd: .5, range: 2, poison: 1.5, glyph: ["'", '-'], desc: 'отравляет на 3 с' },
   spiked: { name: 'Шипастый щит', kind: 'off', block: .28, thorns: .35, glyph: ['#', '#'], desc: 'ранит тех, кто бьёт вплотную' },
   hammer: { name: 'Пепельный молот', kind: 'weapon', two: true, dmg: 11, cd: 2.4, range: 4, aoe: true, glyph: ['T', '='], desc: 'дробит всех рядом, двуручный' },
-  glaive: { name: 'Стеклянная глефа', kind: 'weapon', dmg: 5.5, cd: 1, range: 4, glyph: ['/', '='], desc: 'длинная и острая' },
+  glaive: { name: 'Стеклянная глефа', kind: 'weapon', dmg: 6.5, cd: 1, range: 4, glyph: ['/', '='], desc: 'длинная и острая' },
   mirror: { name: 'Зеркальный щит', kind: 'off', block: .3, reflect: .4, glyph: [']', ']'], desc: 'отражает часть снарядов обратно' },
-  starbow:{ name: 'Звёздный лук', kind: 'weapon', two: true, dmg: 5, cd: 1, range: 16, proj: '*', glyph: [')', '}'], desc: 'мощный выстрел, двуручный' },
-  voidblade:{ name: 'Клинок пустоты', kind: 'weapon', dmg: 4, cd: .6, range: 3, leech: .15, glyph: ['/', '~'], desc: 'возвращает 15% урона как ХП' },
+  starbow:{ name: 'Звёздный лук', kind: 'weapon', two: true, dmg: 6, cd: 1, range: 16, proj: '*', glyph: [')', '}'], desc: 'мощный выстрел, двуручный' },
+  voidblade:{ name: 'Клинок пустоты', kind: 'weapon', dmg: 5, cd: .6, range: 3, leech: .15, glyph: ['/', '~'], desc: 'возвращает 15% урона как ХП' },
 };
 const isHeavy = id => ITEMS[id].cd >= 1.5 || ITEMS[id].aoe;
+// новая вещь перенимает уровень: на 1 ниже лучшей вещи того же типа, чтобы поздние находки не были бесполезны
+const slotOf = id => ITEMS[id].kind === 'off' ? 'off' : 'weapon';
+const bestLvl = slot => Math.max(0, ...Object.keys(save.items).filter(id => slotOf(id) === slot).map(id => save.items[id]));
+const newLvl = (id, t) => Math.max(startLvl(t), bestLvl(slotOf(id)) - 1);
 
 // ---------- Редкость и свойства ----------
 const RAR = ['обычный', 'редкий', 'эпический', 'легендарный'];
@@ -388,16 +392,16 @@ const ENEMIES = {
   /||\%
  /_||_\ `) },
 
-  imp: { name: 'Огненный бес', hp: 8, dmg: 1.8, cd: 1, range: 2, speed: 8, xp: 3, sh: [1, 2], c: '#ec8a4e', spr: sp(String.raw`
+  imp: { name: 'Огненный бес', hp: 8, dmg: 1.6, cd: 1, range: 2, speed: 8, xp: 3, sh: [1, 2], c: '#ec8a4e', spr: sp(String.raw`
  ^ ^
 (>v<)
  /\ `) },
-  golem: { name: 'Пепельный голем', hp: 16, dmg: 3, cd: 2, range: 3, speed: 2, xp: 4, sh: [2, 3], c: '#a08f86', spr: sp(String.raw`
+  golem: { name: 'Пепельный голем', hp: 13, dmg: 2.7, cd: 2, range: 3, speed: 2, xp: 4, sh: [2, 3], c: '#a08f86', spr: sp(String.raw`
  [==]
 [o  o]
 |[  ]|
  |  | `) },
-  serpent: { name: 'Пепельный змей', hp: 80, dmg: 4, cd: 1.8, range: 4, speed: 1.2, xp: 35, sh: [25, 25], c: '#e2603e', mech: 'breath',
+  serpent: { name: 'Пепельный змей', hp: 80, dmg: 3.6, cd: 1.8, range: 4, speed: 1.2, xp: 35, sh: [25, 25], c: '#e2603e', mech: 'breath',
     trick: 'готовит огненный выдох ×4 урона; от него спасает правило «отскочить»', spr: sp(String.raw`
     __/\__
  ~~( O  O )>
@@ -421,11 +425,11 @@ const ENEMIES = {
  |   /\   |
 /_/\____/\_\ `) },
 
-  voidling: { name: 'Пустотник', hp: 10, dmg: 2.5, cd: 1, range: 2, speed: 6, xp: 3, sh: [1, 2], c: '#9b8cd9', spr: sp(String.raw`
+  voidling: { name: 'Пустотник', hp: 9, dmg: 2.1, cd: 1, range: 2, speed: 6, xp: 3, sh: [1, 2], c: '#9b8cd9', spr: sp(String.raw`
  (\_/)
 (@ . @)
  /   \ `) },
-  jelly: { name: 'Звёздная медуза', hp: 7, dmg: 2, cd: 1.4, range: 12, speed: 2.5, fly: true, proj: '+', xp: 3, sh: [1, 2], c: '#e39bd6', spr: sp(String.raw`
+  jelly: { name: 'Звёздная медуза', hp: 6, dmg: 1.7, cd: 1.4, range: 12, speed: 2.5, fly: true, proj: '+', xp: 3, sh: [1, 2], c: '#e39bd6', spr: sp(String.raw`
  .--.
 (*  *)
  ||||`) },
@@ -560,7 +564,7 @@ const upCost = l => Math.max(1, Math.round(10 * Math.pow(1.8, l - 1) * P.cost())
 // искры за перерождение: растут в 2,5 раза за каждую пройденную землю
 // этажи башни, взятые в этой жизни, добавляют искры сверху
 const towerSparks = () => Math.floor(3 * Math.pow(Math.max(0, save.towerFloor - 1), 1.5));
-const sparksFor = best => best >= 2 ? Math.floor(2 * Math.pow(2.5, best - 1)) + (best >= 6 ? towerSparks() : 0) : 0;
+const sparksFor = best => best >= 2 ? Math.floor(4 * Math.pow(2.5, best - 1)) + (best >= 6 ? towerSparks() : 0) : 0;
 
 const BIOMES = {
   forest: { g: '_.__,_"__._,___', gc: '#7a9a5a', d: ' .  ,   .   :   ', dc: '#4d4637',
@@ -642,7 +646,7 @@ const defaults = () => ({ shards: 0, xp: 0, lvl: 1, potions: 2, items: { sword: 
   sel: 0, auto: false, speed: 1, kills: 0, log: [], mats: {}, sound: true, vol: 60, tab: 'map',
   sparks: 0, perks: {}, rebirths: 0, lifeBest: 0, best: 0, seen: 1,
   rar: {}, ach: {}, st: { kills: 0, bosses: {}, crafts: 0, dodges: 0, quests: 0, shardsTotal: 0, legend: 0, fists: false, nopot3: false },
-  daily: null, idle: null, epoch: 0, tut: {}, towerFloor: 1, towerBest: 0 });
+  daily: null, idle: null, epoch: 0, tut: {}, towerFloor: 1, towerBest: 0, forged: {} });
 let save = defaults();
 // номер «эпохи сброса» приходит от бота в ссылке на игру (?epoch=N)
 const URL_EPOCH = +(new URLSearchParams(location.search).get('epoch') || 0);
@@ -847,13 +851,13 @@ function seeded(str) {
   return () => { s = (Math.imul(s, 1664525) + 1013904223) >>> 0; return s / 4294967296; };
 }
 const QT = {
-  kill:    { goal: 60, txt: q => `Победить ${q.goal} врагов`, base: 80 },
-  ktype:   { goal: 25, txt: q => `Победить ${q.goal} × ${ENEMIES[q.target].name}`, base: 90 },
-  boss:    { goal: 1, txt: () => 'Победить хозяина любой земли', base: 150 },
-  nopot:   { goal: 1, txt: () => 'Победить хозяина земли, не выпив ни одного зелья', base: 150, spark: 1 },
-  craft:   { goal: 3, txt: q => `Создать ${q.goal} вещи или зелья`, base: 80 },
-  mats:    { goal: 40, txt: q => `Собрать ${q.goal} материалов`, base: 80 },
-  upgrade: { goal: 5, txt: q => `Улучшить снаряжение ${q.goal} раз`, base: 90 },
+  kill:    { goal: 60, txt: q => `Победить ${q.goal} врагов`, base: 400 },
+  ktype:   { goal: 25, txt: q => `Победить ${q.goal} × ${ENEMIES[q.target].name}`, base: 450 },
+  boss:    { goal: 1, txt: () => 'Победить хозяина любой земли', base: 700 },
+  nopot:   { goal: 1, txt: () => 'Победить хозяина земли, не выпив ни одного зелья', base: 750, spark: 1 },
+  craft:   { goal: 3, txt: q => `Создать ${q.goal} вещи или зелья`, base: 400 },
+  mats:    { goal: 40, txt: q => `Собрать ${q.goal} материалов`, base: 400 },
+  upgrade: { goal: 5, txt: q => `Улучшить снаряжение ${q.goal} раз`, base: 450 },
 };
 const rewardTier = () => Math.max(1, save.lifeBest);
 function checkDaily() {
@@ -888,7 +892,7 @@ function qev(type, data) {
   }
 }
 const questReward = q => Math.round(QT[q.type].base * LAND(rewardTier()).sh * P.sh());
-const loginReward = () => Math.round(40 * Math.min(save.daily.streak, 7) * LAND(rewardTier()).sh * P.sh());
+const loginReward = () => Math.round(200 * Math.min(save.daily.streak, 7) * LAND(rewardTier()).sh * P.sh());
 function claimQuest(i) {
   const q = save.daily.q[i];
   if (!q || !q.done || q.claimed) return;
@@ -1074,7 +1078,7 @@ function gainMat(m, n, e) {
   dirty.craft = true;
 }
 function grant(id, fromChest) {
-  const lv = startLvl(run.loc.tier), luck = fromChest ? .5 : 0;
+  const lv = newLvl(id, run.loc.tier), luck = fromChest ? .5 : 0;
   let better = false;
   if (!save.items[id]) {
     save.items[id] = lv;
@@ -1614,12 +1618,9 @@ function renderRules() {
   </div>`).join('') : '<p class="hint">Правил нет: герой бьёт тем, что в руках, и не пьёт зелья.</p>');
 }
 
-// перековка дорожает: каждый уровень сверх стартового умножает цену рецепта в 1,6 раза
+// перековка дорожает: каждая следующая перековка этой вещи в 1,6 раза дороже предыдущей
 const REFORGE_GROWTH = 1.6;
-const reforgeMult = r => {
-  const lvl = r.out !== 'potion' && save.items[r.out];
-  return lvl ? Math.pow(REFORGE_GROWTH, Math.max(1, lvl - startLvl(recipeTier(r)) + 1)) : 1;
-};
+const reforgeMult = r => r.out !== 'potion' && save.items[r.out] ? Math.pow(REFORGE_GROWTH, (save.forged[r.out] || 0) + 1) : 1;
 function needOf(r) {
   const k = reforgeMult(r), n = {};
   for (const [m, v] of Object.entries(r.need)) n[m] = Math.ceil(v * k);
@@ -1632,9 +1633,9 @@ function renderCraft() {
     : '<span class="hint">Пока пусто. Отправляйтесь в поход.</span>'}</div>`;
   const open = RECIPES.filter(r => recipeTier(r) <= save.seen), hidden = RECIPES.length - open.length;
   h += open.map(r => {
-    const i = RECIPES.indexOf(r), pot = r.out === 'potion', lvl = !pot && save.items[r.out], base = startLvl(recipeTier(r));
+    const i = RECIPES.indexOf(r), pot = r.out === 'potion', lvl = !pot && save.items[r.out], base = pot ? 0 : newLvl(r.out, recipeTier(r));
     const title = pot ? 'Зелье лечения' : rname(r.out);
-    const next = lvl ? Math.max(lvl + 1, base) : base;
+    const next = lvl ? lvl + 1 : base;
     const k = reforgeMult(r);
     const note = pot ? `лечит 50% · сейчас ${save.potions}/${potMax()}` : lvl ? `перековка до ур.${next} · цена ×${k < 10 ? k.toFixed(1) : fmt(k)}` : `${ITEMS[r.out].desc} · ур.${base}`;
     const need = Object.entries(needOf(r)).map(([m, n]) => `<span class="${(save.mats[m] || 0) >= n ? '' : 'miss'}">${MATS[m].name} ${fmt(save.mats[m] || 0)}/${n}</span>`).join(' · ');
@@ -1650,11 +1651,16 @@ function craft(i) {
   for (const [m, n] of Object.entries(needOf(r))) save.mats[m] -= n;
   SFX.play(r.out === 'potion' ? 'potion' : 'craft');
   save.st.crafts++; qev('craft');
-  const base = startLvl(recipeTier(r));
   if (r.out === 'potion') { save.potions++; log('Сварено зелье лечения.', 'good'); }
   else {
-    if (save.items[r.out]) { save.items[r.out] = Math.max(save.items[r.out] + 1, base); log(`${ITEMS[r.out].name} перекован до ур.${save.items[r.out]}.`, 'loot'); }
-    else { save.items[r.out] = base; log(`Создан предмет: ${ITEMS[r.out].name} ур.${base}!`, 'loot'); }
+    if (save.items[r.out]) {
+      save.items[r.out]++; save.forged[r.out] = (save.forged[r.out] || 0) + 1;
+      log(`${ITEMS[r.out].name} перекован до ур.${save.items[r.out]}.`, 'loot');
+    } else {
+      const base = newLvl(r.out, recipeTier(r));
+      save.items[r.out] = base;
+      log(`Создан предмет: ${ITEMS[r.out].name} ур.${base}!`, 'loot');
+    }
     applyRoll(r.out, .2);
   }
   checkAch();
@@ -1688,7 +1694,7 @@ function rebirth(force) {
   rebirthArm = 0;
   save.sparks += gain; save.rebirths++;
   Object.assign(save, { shards: 0, xp: 0, lvl: 1, potions: 2 + pl('flask'), items: { sword: 1 }, main: 'sword', off: null,
-    unlocked: 1, cleared: {}, mats: {}, lifeBest: 0, sel: 0, rar: {}, idle: null, towerFloor: 1 });
+    unlocked: 1, cleared: {}, mats: {}, lifeBest: 0, sel: 0, rar: {}, idle: null, towerFloor: 1, forged: {} });
   SFX.play('rebirth');
   log(`Перерождение №${save.rebirths}. Получено ${fmt(gain)}✦. Тропа начинается заново.`, 'soul');
   checkAch();
@@ -1913,11 +1919,13 @@ function exposeSim() {
       let n = 0;
       while (run && !run.over && n < 60000) { step(.05); n++; }
       if (run && !run.over) end('retreat');
-      const r = { win: run.over === 'win', over: run.over, t: run.t, sh: run.banked };
+      const boss = run.en.find(e => e.boss);
+      const r = { win: run.over === 'win', over: run.over, t: run.t, sh: run.banked, xp: run.xp, drank: run.drank,
+        atBoss: !!(boss && boss.aggro), bossLeft: boss ? Math.max(0, boss.hp) / boss.maxHp : 0, hpLeft: run.hp / run.max };
       run = null;
       return r;
     },
-    ITEMS, LOCS, RECIPES, PERKS, ACH, LAND, upCost, stat, potMax, sparksFor, perkCost, canCraft, craft, equip, upgrade,
+    ITEMS, LOCS, RECIPES, PERKS, ACH, LAND, upCost, newLvl, stat, potMax, sparksFor, perkCost, canCraft, craft, equip, upgrade,
     rebirth: () => rebirth(true), buyPerk, heroMax, recipeTier, startLvl, checkAch,
   };
 }

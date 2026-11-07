@@ -134,6 +134,13 @@ input[type=range]{accent-color:var(--amber);width:140px}
 .card{background:var(--panel);border:1px solid var(--amber);border-radius:4px;padding:18px;max-width:380px;width:100%;display:flex;flex-direction:column;gap:10px}
 .card h2{font-family:var(--display);font-size:16px;margin:0;color:var(--amber)}
 .card ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:4px;font-variant-numeric:tabular-nums}
+.tut{position:fixed;z-index:9;max-width:270px;background:var(--panel);border:1px solid var(--amber);border-radius:4px;padding:10px 12px;
+  font-size:13px;display:flex;flex-direction:column;gap:8px;box-shadow:0 6px 24px rgba(0,0,0,.45)}
+.tut .row{display:flex;gap:8px;justify-content:flex-end;flex-wrap:wrap}
+.tut .row button{padding:4px 10px;font-size:12px}
+.tut-hl{outline:2px solid var(--amber)!important;outline-offset:2px;animation:tutpulse 1.2s ease-in-out infinite}
+@keyframes tutpulse{50%{outline-color:transparent}}
+@media (prefers-reduced-motion:reduce){.tut-hl{animation:none}}
 @media (max-width:520px){
   .hud{grid-template-columns:1fr auto}.hud .prog{grid-column:1/-1;grid-row:2}
   .item .acts{max-width:130px}
@@ -180,7 +187,7 @@ input[type=range]{accent-color:var(--amber);width:140px}
   </section>
   <section class="pane" data-pane="craft" hidden>
     <h2>Мастерская</h2>
-    <p class="hint">Материалы падают с врагов и остаются после поражения. Каждое создание заново бросает редкость: если выпадет выше нынешней, свойства обновятся.</p>
+    <p class="hint">Материалы падают с врагов и остаются после поражения. Каждое создание заново бросает редкость: если выпадет выше нынешней, свойства обновятся. Перековка поднимает уровень вещи на 1, и каждая следующая стоит в 1,6 раза больше.</p>
     <div class="list" id="craft"></div>
   </section>
   <section class="pane" data-pane="soul" hidden>
@@ -216,6 +223,11 @@ input[type=range]{accent-color:var(--amber);width:140px}
     <ul id="awayList"></ul>
     <div><button class="primary" id="awayOk">Забрать</button></div>
   </div>
+</div>
+
+<div class="tut" id="tut" hidden role="status" aria-live="polite">
+  <span id="tutText"></span>
+  <div class="row"><button id="tutSkip">Пропустить обучение</button><button id="tutOk" class="primary">Понятно</button></div>
 </div>
 
 <script>
@@ -482,6 +494,21 @@ const RECIPES = [
 ];
 const recipeTier = r => Math.max(...Object.keys(r.need).map(m => MATS[m].tier));
 
+// ---------- Бесконечная башня ----------
+const BIOME_ORDER = ['forest', 'cave', 'swamp', 'ash', 'glass', 'rift'];
+const ALL_POOL = [...new Set(LOCS.flatMap(l => l.pool))];
+const ALL_BOSSES = LOCS.map(l => l.boss);
+const ALL_LOOT = [...new Set(LOCS.flatMap(l => l.loot))];
+const towerOpen = () => !!save.cleared.rift;
+// каждый этаж сильнее 6-й земли: ХП ×1,3 и урон ×1,22 за этаж; на каждом 5-м этаже хозяин земли
+function towerLoc(f) {
+  const S = LAND(6);
+  return { id: 'tower', tower: true, floor: f, name: `Башня · этаж ${f}`, tier: 6, len: 180, pool: ALL_POOL, loot: ALL_LOOT,
+    boss: f % 5 === 0 ? ALL_BOSSES[(f / 5 - 1) % ALL_BOSSES.length] : null, biome: BIOME_ORDER[(f - 1) % 6],
+    S: { hp: S.hp * Math.pow(1.3, f), dmg: S.dmg * Math.pow(1.22, f), sh: S.sh * Math.pow(1.2, f), xp: S.xp * Math.pow(1.2, f) } };
+}
+const locOf = i => i === 'tower' ? towerLoc(save.towerFloor) : LOCS[i];
+
 // ---------- Достижения (вечные бонусы, не сбрасываются перерождением) ----------
 const ACH = [
   { id: 'k100', name: 'Первая сотня', desc: 'Победить 100 врагов', test: () => save.st.kills >= 100, b: { dmg: .03 } },
@@ -493,6 +520,8 @@ const ACH = [
   { id: 'serpent', name: 'Укротитель огня', desc: 'Победить Пепельного змея', test: () => save.st.bosses.serpent, b: { dmg: .05, hp: .05 } },
   { id: 'colossus', name: 'Стекольщик', desc: 'Победить Стеклянного колосса', test: () => save.st.bosses.colossus, b: { dmg: .08 } },
   { id: 'all', name: 'Конец тропы', desc: 'Победить Пожирателя звёзд', test: () => save.st.bosses.devourer, b: { dmg: .1, hp: .1 } },
+  { id: 'tower10', name: 'Покоритель башни', desc: 'Подняться на 10-й этаж Бесконечной башни', test: () => save.towerBest >= 10, b: { dmg: .08 } },
+  { id: 'tower25', name: 'Над облаками', desc: 'Подняться на 25-й этаж Бесконечной башни', test: () => save.towerBest >= 25, b: { dmg: .1, hp: .1, sh: .1 } },
   { id: 'fists', name: 'Голыми руками', desc: 'Пройти Тихий лес без оружия и щита', test: () => save.st.fists, b: { dmg: .05 } },
   { id: 'nopot', name: 'Без капли', desc: 'Победить хозяина 3-й земли или дальше, не выпив зелий', test: () => save.st.nopot3, b: { hp: .05 } },
   { id: 'dodge', name: 'Ловкач', desc: 'Увернуться от 10 огненных выдохов', test: () => save.st.dodges >= 10, b: { hp: .05 } },
@@ -529,7 +558,9 @@ const P = {
 const potMax = () => 5 + pl('flask');
 const upCost = l => Math.max(1, Math.round(10 * Math.pow(1.8, l - 1) * P.cost()));
 // искры за перерождение: растут в 2,5 раза за каждую пройденную землю
-const sparksFor = best => best >= 2 ? Math.floor(2 * Math.pow(2.5, best - 1)) : 0;
+// этажи башни, взятые в этой жизни, добавляют искры сверху
+const towerSparks = () => Math.floor(3 * Math.pow(Math.max(0, save.towerFloor - 1), 1.5));
+const sparksFor = best => best >= 2 ? Math.floor(2 * Math.pow(2.5, best - 1)) + (best >= 6 ? towerSparks() : 0) : 0;
 
 const BIOMES = {
   forest: { g: '_.__,_"__._,___', gc: '#7a9a5a', d: ' .  ,   .   :   ', dc: '#4d4637',
@@ -611,7 +642,7 @@ const defaults = () => ({ shards: 0, xp: 0, lvl: 1, potions: 2, items: { sword: 
   sel: 0, auto: false, speed: 1, kills: 0, log: [], mats: {}, sound: true, vol: 60, tab: 'map',
   sparks: 0, perks: {}, rebirths: 0, lifeBest: 0, best: 0, seen: 1,
   rar: {}, ach: {}, st: { kills: 0, bosses: {}, crafts: 0, dodges: 0, quests: 0, shardsTotal: 0, legend: 0, fists: false, nopot3: false },
-  daily: null, idle: null, epoch: 0 });
+  daily: null, idle: null, epoch: 0, tut: {}, towerFloor: 1, towerBest: 0 });
 let save = defaults();
 // номер «эпохи сброса» приходит от бота в ссылке на игру (?epoch=N)
 const URL_EPOCH = +(new URLSearchParams(location.search).get('epoch') || 0);
@@ -662,6 +693,9 @@ function migrate() {
   save.st.kills = Math.max(save.st.kills, save.kills || 0);
   for (const l of LOCS) if (save.cleared[l.id]) save.st.bosses[l.boss] = true;
   save.potions = Math.min(save.potions, potMax());
+  // опытным игрокам обучение не показываем
+  save.tut = save.tut || {};
+  if (!Object.keys(save.tut).length && save.st.kills > 50) save.tut.off = true;
 }
 // админ бота сбросил прогресс всем: начинаем заново, оставляя только настройки звука и скорости
 function applyEpoch() {
@@ -892,23 +926,32 @@ function checkAch() {
 
 // ---------- Поход ----------
 let run = null, campT = 0;
-function mkEnemy(id, x, t, boss) {
-  const d = ENEMIES[id], S = LAND(t);
+function mkEnemy(id, x, S, boss) {
+  const d = ENEMIES[id];
   return Object.assign({}, d, { id, x, hp: d.hp * S.hp, maxHp: d.hp * S.hp, dmg: d.dmg * S.dmg, xp: Math.round(d.xp * S.xp),
     sh: [d.sh[0] * S.sh, d.sh[1] * S.sh], cdT: rnd(.3, d.cd), aggro: false, anim: 0, flash: 0,
     seed: Math.random() * 9, w: Math.max(...d.spr.map(l => l.length)), boss: !!boss,
     at: d.at ? d.at.slice() : null, mechT: 4, shield: 0, shieldT: 0, charge: 0 });
 }
 function startRun(i) {
-  const loc = LOCS[i], en = [];
+  if (i === 'tower' && !towerOpen()) i = 0;
+  const loc = locOf(i), S = loc.S || LAND(loc.tier), en = [];
   let x = 30;
   while (x < loc.len - 34) {
     const n = ri(1, loc.tier > 1 ? 3 : 2);
-    for (let k = 0; k < n; k++) { const e = mkEnemy(pick(loc.pool), x, loc.tier); en.push(e); x += e.w + 2; }
+    for (let k = 0; k < n; k++) { const e = mkEnemy(pick(loc.pool), x, S); en.push(e); x += e.w + 2; }
     x += ri(16, 28);
   }
-  en.push(mkEnemy(loc.boss, loc.len, loc.tier, true));
-  run = { i, loc, x: 0, hp: 0, max: 0, en, proj: [], fx: [], sh: 0, xp: 0, t: 0, cd: { main: 0, off: 0 }, anim: { main: 0, off: 0 },
+  if (loc.boss) en.push(mkEnemy(loc.boss, loc.len, S, true));
+  else {
+    // страж этажа башни: усиленный обычный враг
+    const g = mkEnemy(pick(loc.pool), loc.len, S, true);
+    g.hp = g.maxHp = g.hp * 6; g.dmg *= 1.5; g.xp *= 5; g.sh = g.sh.map(v => v * 5);
+    g.name = 'Страж: ' + g.name; g.c = '#ffd27a';
+    en.push(g);
+  }
+  tutDone('go');
+  run = { i, loc, S, x: 0, hp: 0, max: 0, en, proj: [], fx: [], sh: 0, xp: 0, t: 0, cd: { main: 0, off: 0 }, anim: { main: 0, off: 0 },
     potCd: 0, hurt: 0, over: null, overT: 0, main: save.main || 'fist', off: save.off, walk: 0, chest: null, swap: 0, mats: {},
     drank: 0, fistOnly: true, dodgeT: 0, dodgeCd: 0, lastDodge: -9 };
   run.max = run.hp = heroMax();
@@ -1008,13 +1051,16 @@ function kill(e) {
   for (const [m, chance, a, b] of DROPS[e.id] || []) if (Math.random() < chance) gainMat(m, sround(ri(a, b) * P.mat()), e);
   if (!e.boss && Math.random() < .05) grant(pick(run.loc.loot), false);
   if (e.boss) {
-    save.st.bosses[e.id] = true;
+    if (!run.loc.tower) save.st.bosses[e.id] = true;
     qev('boss', run.drank === 0);
     if (run.drank === 0 && run.loc.tier >= 3) save.st.nopot3 = true;
     if (run.loc.tier === 1 && run.fistOnly) save.st.fists = true;
-    const fresh = run.loc.loot.filter(id => !save.items[id]);
-    run.chest = fresh.length ? pick(fresh) : pick(run.loc.loot);
-    grant(run.chest, true);
+    // в башне сундук только за хозяина земли на каждом 5-м этаже
+    if (!run.loc.tower || run.loc.boss) {
+      const fresh = run.loc.loot.filter(id => !save.items[id]);
+      run.chest = fresh.length ? pick(fresh) : pick(run.loc.loot);
+      grant(run.chest, true);
+    }
     end('win');
   }
 }
@@ -1088,7 +1134,7 @@ function bossMech(e, dt) {
   const d = dist(e);
   if (e.at && e.at.length && e.hp / e.maxHp < e.at[0]) {
     e.at.shift();
-    e.adds.forEach((id, k) => { const a = mkEnemy(id, run.x + 9 + k * 6, run.loc.tier); a.aggro = true; run.en.push(a); });
+    e.adds.forEach((id, k) => { const a = mkEnemy(id, run.x + 9 + k * 6, run.S); a.aggro = true; run.en.push(a); });
     fx(e.x + 2, 5, e.mech === 'enrage' ? 'ЯРОСТЬ' : 'ЗОВ!', '#ffd27a');
     SFX.play('summon');
     if (e.mech === 'enrage') { e.cd *= .6; e.c = '#ff5d8f'; }
@@ -1122,7 +1168,12 @@ function end(kind) {
   SFX.play(kind);
   const loc = run.loc;
   let gain = run.sh;
-  if (kind === 'win') {
+  if (kind === 'win' && loc.tower) {
+    save.towerFloor++;
+    const rec = loc.floor > save.towerBest;
+    save.towerBest = Math.max(save.towerBest, loc.floor);
+    log(`Этаж ${loc.floor} взят! Добыча: ${fmt(gain)}◆.${rec ? ' Новый рекорд башни!' : ''}`, 'good');
+  } else if (kind === 'win') {
     save.cleared[loc.id] = (save.cleared[loc.id] || 0) + 1;
     save.lifeBest = Math.max(save.lifeBest, loc.tier);
     save.best = Math.max(save.best, loc.tier);
@@ -1133,7 +1184,7 @@ function end(kind) {
     }
     log(`${ENEMIES[loc.boss].name} повержен! Добыча: ${fmt(gain)}◆.`, 'good');
     if (loc.tier === 2 && save.rebirths === 0 && save.cleared[loc.id] === 1) log('Теперь доступно перерождение. Загляните во вкладку «Душа».', 'soul');
-    if (run.i === LOCS.length - 1 && save.cleared[loc.id] === 1) log('Пожиратель звёзд пал. Тропа пройдена до конца.', 'loot');
+    if (run.i === LOCS.length - 1 && save.cleared[loc.id] === 1) log('Пожиратель звёзд пал. Тропа пройдена до конца, и открылась Бесконечная башня.', 'loot');
     // темп этого похода запоминаем для добычи, пока игрока нет
     if (!save.idle || loc.tier >= save.idle.tier) {
       const t = Math.max(30, run.t), mats = {};
@@ -1498,7 +1549,7 @@ function renderControls() {
   $('#snd').setAttribute('aria-pressed', save.sound);
   $('#snd').classList.toggle('on', save.sound);
   $('#vol').value = save.vol; $('#vol').disabled = !save.sound;
-  $('#status').textContent = run ? run.loc.name : `Привал · ${LOCS[save.sel].name}`;
+  $('#status').textContent = run ? run.loc.name : `Привал · ${save.sel === 'tower' && towerOpen() ? locOf('tower').name : LOCS[save.sel === 'tower' ? 0 : save.sel].name}`;
   document.querySelectorAll('.pane').forEach(p => { p.hidden = p.dataset.pane !== save.tab; });
   document.querySelectorAll('.tab').forEach(b => { const on = b.dataset.tab === save.tab; b.classList.toggle('on', on); b.setAttribute('aria-current', on ? 'page' : 'false'); });
 }
@@ -1510,7 +1561,9 @@ function renderMap() {
     return `<button class="loc ${i === save.sel ? 'sel' : ''}" id="loc-${l.id}" data-loc="${i}">
       <span class="mark">${i === save.sel ? '▶' : '·'}</span><span class="t">${l.name}</span><span class="tier">ХП ×${fmt(S.hp)} · урон ×${fmt(S.dmg)}</span>
       <span class="sub">${B.name}: ${B.trick} · ${cl ? 'пройдено ×' + cl : 'не пройдено'}</span></button>`;
-  }).join(''));
+  }).join('') + (towerOpen() ? `<button class="loc ${save.sel === 'tower' ? 'sel' : ''}" id="loc-tower" data-loc="tower">
+      <span class="mark">${save.sel === 'tower' ? '▶' : '·'}</span><span class="t">Бесконечная башня</span><span class="tier">этаж ${save.towerFloor}</span>
+      <span class="sub">Каждый этаж сильнее предыдущего, на каждом 5-м — хозяин земли и сундук. Рекорд: ${save.towerBest}. Этажи этой жизни добавляют искры за перерождение.</span></button>` : ''));
 }
 
 function itemLine(id) {
@@ -1561,7 +1614,18 @@ function renderRules() {
   </div>`).join('') : '<p class="hint">Правил нет: герой бьёт тем, что в руках, и не пьёт зелья.</p>');
 }
 
-const canCraft = r => Object.entries(r.need).every(([m, n]) => (save.mats[m] || 0) >= n) && (r.out !== 'potion' || save.potions < potMax());
+// перековка дорожает: каждый уровень сверх стартового умножает цену рецепта в 1,6 раза
+const REFORGE_GROWTH = 1.6;
+const reforgeMult = r => {
+  const lvl = r.out !== 'potion' && save.items[r.out];
+  return lvl ? Math.pow(REFORGE_GROWTH, Math.max(1, lvl - startLvl(recipeTier(r)) + 1)) : 1;
+};
+function needOf(r) {
+  const k = reforgeMult(r), n = {};
+  for (const [m, v] of Object.entries(r.need)) n[m] = Math.ceil(v * k);
+  return n;
+}
+const canCraft = r => Object.entries(needOf(r)).every(([m, n]) => (save.mats[m] || 0) >= n) && (r.out !== 'potion' || save.potions < potMax());
 function renderCraft() {
   const have = Object.keys(MATS).filter(m => save.mats[m]);
   let h = `<div class="mats">${have.length ? have.map(m => `<span class="mat" style="--mc:${MATS[m].c}">${MATS[m].name} <b>${fmt(save.mats[m])}</b></span>`).join('')
@@ -1571,8 +1635,9 @@ function renderCraft() {
     const i = RECIPES.indexOf(r), pot = r.out === 'potion', lvl = !pot && save.items[r.out], base = startLvl(recipeTier(r));
     const title = pot ? 'Зелье лечения' : rname(r.out);
     const next = lvl ? Math.max(lvl + 1, base) : base;
-    const note = pot ? `лечит 50% · сейчас ${save.potions}/${potMax()}` : lvl ? `уже есть · перековка до ур.${next}` : `${ITEMS[r.out].desc} · ур.${base}`;
-    const need = Object.entries(r.need).map(([m, n]) => `<span class="${(save.mats[m] || 0) >= n ? '' : 'miss'}">${MATS[m].name} ${fmt(save.mats[m] || 0)}/${n}</span>`).join(' · ');
+    const k = reforgeMult(r);
+    const note = pot ? `лечит 50% · сейчас ${save.potions}/${potMax()}` : lvl ? `перековка до ур.${next} · цена ×${k < 10 ? k.toFixed(1) : fmt(k)}` : `${ITEMS[r.out].desc} · ур.${base}`;
+    const need = Object.entries(needOf(r)).map(([m, n]) => `<span class="${(save.mats[m] || 0) >= n ? '' : 'miss'}">${MATS[m].name} ${fmt(save.mats[m] || 0)}/${n}</span>`).join(' · ');
     return `<div class="item recipe"><span class="n">${title}${lvl ? ` <em>ур.${lvl}</em>` : ''}</span><span class="d">${note}</span><span class="d need">${need}</span>
       <div class="acts"><button id="cr-${i}" data-craft="${i}" ${canCraft(r) ? '' : 'disabled'}>${pot ? 'Сварить' : lvl ? 'Перековать' : 'Создать'}</button></div></div>`;
   }).join('');
@@ -1582,7 +1647,7 @@ function renderCraft() {
 function craft(i) {
   const r = RECIPES[i];
   if (!r || !canCraft(r)) return;
-  for (const [m, n] of Object.entries(r.need)) save.mats[m] -= n;
+  for (const [m, n] of Object.entries(needOf(r))) save.mats[m] -= n;
   SFX.play(r.out === 'potion' ? 'potion' : 'craft');
   save.st.crafts++; qev('craft');
   const base = startLvl(recipeTier(r));
@@ -1623,7 +1688,7 @@ function rebirth(force) {
   rebirthArm = 0;
   save.sparks += gain; save.rebirths++;
   Object.assign(save, { shards: 0, xp: 0, lvl: 1, potions: 2 + pl('flask'), items: { sword: 1 }, main: 'sword', off: null,
-    unlocked: 1, cleared: {}, mats: {}, lifeBest: 0, sel: 0, rar: {}, idle: null });
+    unlocked: 1, cleared: {}, mats: {}, lifeBest: 0, sel: 0, rar: {}, idle: null, towerFloor: 1 });
   SFX.play('rebirth');
   log(`Перерождение №${save.rebirths}. Получено ${fmt(gain)}✦. Тропа начинается заново.`, 'soul');
   checkAch();
@@ -1681,19 +1746,78 @@ function upgrade(id) {
   const c = upCost(save.items[id]);
   if (save.shards < c) return false;
   save.shards -= c; save.items[id]++;
-  qev('upgrade');
+  qev('upgrade'); tutDone('upgrade');
   SFX.play('craft');
   log(`${ITEMS[id].name} улучшен до ур.${save.items[id]}.`, 'loot');
   dirty.equip = true;
   return true;
 }
 
+// ---------- Обучение ----------
+// шаг показывается, когда выполнено его условие; закрывается действием игрока или кнопкой «Понятно»
+const TUT = [
+  { id: 'go', target: '#go', text: 'Герой готов к походу. Нажмите «В путь»: дальше он сам пойдёт по тропе и будет сражаться.',
+    when: () => !run && save.st.kills === 0 },
+  { id: 'speed', target: '#sp4', ok: true, text: 'Бой идёт сам. Если ждать скучно, ускорьте игру до 4×.',
+    when: () => run && !run.over && save.st.kills >= 2 },
+  { id: 'equip', target: '#tab-equip', text: 'Осколки ◆ тратятся на улучшение вещей. Откройте вкладку «Вещи».',
+    when: () => !run && save.tab !== 'equip' && save.main && save.shards >= upCost(save.items[save.main]) },
+  { id: 'upgrade', target: () => save.main && `#up-${save.main}`, text: 'Нажмите ↑, чтобы улучшить оружие: каждый уровень даёт +35% урона.',
+    when: () => save.tab === 'equip' && save.main && save.shards >= upCost(save.items[save.main]) },
+  { id: 'rules', target: '#tab-rules', text: 'Во вкладке «Тактика» правила решают, когда пить зелья, чем бить и когда отскочить от удара.',
+    when: () => !run && save.tut.upgrade && save.st.kills >= 20 && save.tab !== 'rules' },
+  { id: 'craft', target: '#tab-craft', text: 'Материалов хватает на рецепт. Загляните в «Крафт»: там создаются новые вещи и зелья.',
+    when: () => !run && save.tab !== 'craft' && RECIPES.some(r => r.out !== 'potion' && !save.items[r.out] && recipeTier(r) <= save.seen && canCraft(r)) },
+  { id: 'soul', target: '#tab-soul', text: 'Можно переродиться: начать заново, но с вечными умениями. Подробности во вкладке «Душа».',
+    when: () => !run && save.tab !== 'soul' && sparksFor(save.lifeBest) > 0 },
+  { id: 'tower', target: '#tab-map', ok: true, text: 'Открыта Бесконечная башня! Она в конце карты: каждый этаж сильнее, а рекорд остаётся навсегда.',
+    when: () => !run && towerOpen() },
+];
+const TUT_TAB = { equip: 'equip', rules: 'rules', craft: 'craft', soul: 'soul', map: 'tower' };
+let tutCur = null, tutEl = null;
+function tutDone(id) {
+  if (!id || save.tut[id]) return;
+  save.tut[id] = true;
+  if (tutCur === id) hideTut();
+}
+function hideTut() {
+  if (tutEl) tutEl.classList.remove('tut-hl');
+  tutEl = null; tutCur = null;
+  $('#tut').hidden = true;
+}
+function placeTut(el) {
+  const r = el.getBoundingClientRect(), b = $('#tut'), bw = b.offsetWidth, bh = b.offsetHeight;
+  let top = r.top - bh - 12;
+  if (top < 8) top = r.bottom + 12;
+  b.style.top = Math.min(top, innerHeight - bh - 8) + 'px';
+  b.style.left = Math.max(8, Math.min(innerWidth - bw - 8, r.left + r.width / 2 - bw / 2)) + 'px';
+}
+function updateTutorial() {
+  if (save.tut.off) { if (tutCur) hideTut(); return; }
+  const step = TUT.find(s => !save.tut[s.id] && s.when());
+  const sel = step && (typeof step.target === 'function' ? step.target() : step.target);
+  const el = sel && document.querySelector(sel);
+  if (!step || !el || el.offsetParent === null || !$('#away').hidden) { if (tutCur) hideTut(); return; }
+  if (tutCur !== step.id || tutEl !== el) {
+    hideTut();
+    tutCur = step.id; tutEl = el;
+    el.classList.add('tut-hl');
+    $('#tutText').textContent = step.text;
+    $('#tutOk').hidden = !step.ok;
+    $('#tut').hidden = false;
+    if (!el.closest('.tabbar') && !el.closest('.screen')) el.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  }
+  placeTut(el);
+}
+$('#tutOk').addEventListener('click', () => { tutDone(tutCur); persist(); });
+$('#tutSkip').addEventListener('click', () => { save.tut.off = true; hideTut(); persist(); });
+
 // события
 $('#go').addEventListener('click', () => {
   if (run) { if (!run.over) end('retreat'); }
   else startRun(save.sel);
 });
-document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { save.speed = +b.dataset.speed; dirty.all = true; persist(); }));
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { save.speed = +b.dataset.speed; tutDone('speed'); dirty.all = true; persist(); }));
 $('#auto').addEventListener('change', e => { save.auto = e.target.checked; persist(); });
 $('#snd').addEventListener('click', () => { save.sound = !save.sound; dirty.all = true; persist(); });
 $('#vol').addEventListener('input', e => { save.vol = +e.target.value; SFX.setVol(); persist(); });
@@ -1701,12 +1825,12 @@ $('#vol').addEventListener('change', () => SFX.play('coin'));
 $('#awayOk').addEventListener('click', claimAway);
 $('#tabs').addEventListener('click', e => {
   const b = e.target.closest('[data-tab]'); if (!b) return;
-  save.tab = b.dataset.tab; dirty.all = true; persist();
+  save.tab = b.dataset.tab; tutDone(TUT_TAB[save.tab]); dirty.all = true; persist();
   window.scrollTo({ top: 0 });
 });
 $('#map').addEventListener('click', e => {
   const b = e.target.closest('[data-loc]'); if (!b) return;
-  save.sel = +b.dataset.loc; dirty.map = true; dirty.all = true; persist();
+  save.sel = b.dataset.loc === 'tower' ? 'tower' : +b.dataset.loc; dirty.map = true; dirty.all = true; persist();
 });
 $('#equip').addEventListener('click', e => {
   const b = e.target.closest('button'); if (!b || b.disabled) return;
@@ -1774,7 +1898,7 @@ function frame(ts) {
   // кнопки улучшений, крафта и умений зависят от запасов
   if (equipT > .5) { equipT = 0; dirty.equip = dirty.craft = dirty.soul = dirty.quests = true; updateBadges(); }
   if (slowT > 5) { slowT = 0; checkDaily(); checkAch(); }
-  render(); hud(); refreshPanels();
+  render(); hud(); refreshPanels(); updateTutorial();
   guardClosing(!!(run && !run.over));
   requestAnimationFrame(frame);
 }

@@ -274,14 +274,14 @@ const ITEMS = {
   dagger: { name: 'Кинжал', kind: 'weapon', dmg: 1.4, cd: .35, range: 2, glyph: ["'", '-'], desc: 'частые уколы' },
   axe:    { name: 'Колун', kind: 'weapon', dmg: 7, cd: 1.6, range: 3, glyph: ['P', '='], desc: 'тяжёлый: втрое сильнее по щитам' },
   bow:    { name: 'Охотничий лук', kind: 'weapon', two: true, dmg: 2.4, cd: 1.1, range: 14, proj: '>', glyph: [')', '}'], desc: 'стреляет издалека, двуручный' },
-  staff:  { name: 'Посох углей', kind: 'weapon', two: true, dmg: 3.2, cd: 2.2, range: 14, aoe: true, glyph: ['¡', '*'], desc: 'жжёт всех в радиусе, двуручный' },
+  staff:  { name: 'Посох углей', kind: 'weapon', two: true, dmg: 5, cd: 2.2, range: 14, aoe: 9, glyph: ['¡', '*'], desc: 'жжёт цель и всех вокруг неё, двуручный' },
   shield: { name: 'Дощатый щит', kind: 'off', block: .22, glyph: ['[', '['], desc: 'гасит часть урона' },
   charm:  { name: 'Костяной оберег', kind: 'off', regen: .02, glyph: ['§', '§'], desc: 'понемногу лечит' },
   spear:  { name: 'Копьё', kind: 'weapon', dmg: 4, cd: 1, range: 5, glyph: ['|', '—'], desc: 'достаёт дальше меча' },
   wand:   { name: 'Кристальный жезл', kind: 'weapon', dmg: 1.8, cd: .8, range: 12, proj: '•', glyph: ['!', '*'], desc: 'стреляет, одноручный' },
   venom:  { name: 'Жало топи', kind: 'weapon', dmg: 1.8, cd: .5, range: 2, poison: 1.5, glyph: ["'", '-'], desc: 'отравляет на 3 с' },
   spiked: { name: 'Шипастый щит', kind: 'off', block: .28, thorns: .35, glyph: ['#', '#'], desc: 'ранит тех, кто бьёт вплотную' },
-  hammer: { name: 'Пепельный молот', kind: 'weapon', two: true, dmg: 11, cd: 2.4, range: 4, aoe: true, glyph: ['T', '='], desc: 'дробит всех рядом, двуручный' },
+  hammer: { name: 'Пепельный молот', kind: 'weapon', two: true, dmg: 11, cd: 2.4, range: 4, aoe: 6, glyph: ['T', '='], desc: 'дробит цель и всех вокруг неё, двуручный' },
   glaive: { name: 'Стеклянная глефа', kind: 'weapon', dmg: 6.5, cd: 1, range: 4, glyph: ['/', '='], desc: 'длинная и острая' },
   mirror: { name: 'Зеркальный щит', kind: 'off', block: .3, reflect: .4, glyph: [']', ']'], desc: 'отражает часть снарядов обратно' },
   starbow:{ name: 'Звёздный лук', kind: 'weapon', two: true, dmg: 6, cd: 1, range: 16, proj: '*', glyph: [')', '}'], desc: 'мощный выстрел, двуручный' },
@@ -1134,6 +1134,7 @@ function heroHit(d, src) {
   fx(run.x + 1, 8, '-' + fmt(Math.max(1, d)), '#de7a62');
   if (run.hp <= 0) { run.hp = 0; end('lose'); }
 }
+const aoeLog = { attacks: 0, targets: 0 };   // только для симулятора: сколько целей задевают удары по площади
 function heroAttack(slot, id, target, near) {
   const it = ITEMS[id], s = stat(id), m = curMods();
   const crit = Math.random() < .1 + (m.crit || 0);
@@ -1142,7 +1143,13 @@ function heroAttack(slot, id, target, near) {
   run.anim[slot] = .15;
   SFX.play(it.proj ? (id === 'wand' ? 'zap' : 'twang') : id === 'hammer' ? 'thud' : it.aoe ? 'fire' : 'swing');
   if (it.proj) run.proj.push({ x: run.x + 4, y: 11, v: 34, dmg: d, crit, target, glyph: it.proj, hero: true, c: '#ece6d6', poison: s.poison, opt });
-  else if (it.aoe) near.filter(e => dist(e) <= it.range).forEach(e => { hitEnemy(e, d, crit, s.poison, opt); fx(e.x, 9, '*', '#ec8a4e'); });
+  else if (it.aoe) {
+    // удар по площади: цель и все враги, между краем которых и краем цели не больше it.aoe клеток
+    const gap = e => e.x >= target.x ? e.x - (target.x + target.w) : target.x - (e.x + e.w);
+    const hit = near.filter(e => e === target || gap(e) <= it.aoe);
+    if (SIM) { aoeLog.attacks++; aoeLog.targets += hit.length; }
+    hit.forEach(e => { hitEnemy(e, d, crit, s.poison, opt); fx(e.x, 9, '*', '#ec8a4e'); });
+  }
   else hitEnemy(target, d, crit, s.poison, opt);
   const leech = (it.leech || 0) + (m.leech || 0);
   if (leech && !it.proj && run.hp > 0) run.hp = Math.min(run.max, run.hp + d * leech);
@@ -1260,7 +1267,7 @@ function step(dt) {
     for (const [slot, id] of weapons) {
       run.cd[slot] -= dt; run.anim[slot] -= dt;
       if (front && dist(front) <= ITEMS[id].range && run.cd[slot] <= 0) {
-        heroAttack(slot, id, front, near);
+        heroAttack(slot, id, front, alive);
         run.cd[slot] = stat(id).cd * (slot === 'off' ? 1.15 : 1);
         if (run.over) return;
       }
@@ -1589,7 +1596,7 @@ function renderMap() {
 
 function itemLine(id) {
   const it = ITEMS[id], s = stat(id);
-  if (it.kind === 'weapon') return `урон ${fmt(s.dmg)}${s.poison ? ` + яд ${fmt(s.poison)}/с` : ''} · раз в ${s.cd.toFixed(2)}с · дальность ${it.range} · ${it.desc}`;
+  if (it.kind === 'weapon') return `урон ${fmt(s.dmg)}${s.poison ? ` + яд ${fmt(s.poison)}/с` : ''} · раз в ${s.cd.toFixed(2)}с · дальность ${it.range}${it.aoe ? ` · радиус ${it.aoe} вокруг цели` : ''} · ${it.desc}`;
   if (it.block) return `блок ${Math.round(s.block * 100)}%${it.thorns ? ` · шипы ${Math.round(it.thorns * 100)}%` : ''}${it.reflect ? ` · отражение ${Math.round(it.reflect * 100)}%` : ''} · ${it.desc}`;
   return `+${fmt(s.regen)} ХП/с · ${it.desc}`;
 }
@@ -2012,7 +2019,7 @@ function exposeSim() {
       run = null;
       return r;
     },
-    ITEMS, LOCS, RECIPES, PERKS, ACH, LAND, upCost, newLvl, stat, potMax, sparksFor, perkCost, canCraft, craft, equip, upgrade,
+    ITEMS, LOCS, RECIPES, PERKS, ACH, LAND, upCost, newLvl, aoeLog, stat, potMax, sparksFor, perkCost, canCraft, craft, equip, upgrade,
     rebirth: () => rebirth(true), buyPerk, heroMax, recipeTier, startLvl, checkAch,
   };
 }

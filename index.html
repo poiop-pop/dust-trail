@@ -611,8 +611,10 @@ const defaults = () => ({ shards: 0, xp: 0, lvl: 1, potions: 2, items: { sword: 
   sel: 0, auto: false, speed: 1, kills: 0, log: [], mats: {}, sound: true, vol: 60, tab: 'map',
   sparks: 0, perks: {}, rebirths: 0, lifeBest: 0, best: 0, seen: 1,
   rar: {}, ach: {}, st: { kills: 0, bosses: {}, crafts: 0, dodges: 0, quests: 0, shardsTotal: 0, legend: 0, fists: false, nopot3: false },
-  daily: null, idle: null });
+  daily: null, idle: null, epoch: 0 });
 let save = defaults();
+// номер «эпохи сброса» приходит от бота в ссылке на игру (?epoch=N)
+const URL_EPOCH = +(new URLSearchParams(location.search).get('epoch') || 0);
 
 // ---------- Telegram ----------
 const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
@@ -661,9 +663,17 @@ function migrate() {
   for (const l of LOCS) if (save.cleared[l.id]) save.st.bosses[l.boss] = true;
   save.potions = Math.min(save.potions, potMax());
 }
+// админ бота сбросил прогресс всем: начинаем заново, оставляя только настройки звука и скорости
+function applyEpoch() {
+  if (SIM || !URL_EPOCH || URL_EPOCH <= (save.epoch || 0)) return;
+  const hadProgress = !!save.ts;
+  save = Object.assign(defaults(), { sound: save.sound, vol: save.vol, speed: save.speed, epoch: URL_EPOCH });
+  if (hadProgress) log('Игра обновилась, и прогресс всех игроков сброшен. Тропа начинается заново!', 'soul');
+  persist(true);
+}
 function load(done) {
   const local = readLocal();
-  const apply = s => { if (s) save = Object.assign(defaults(), s); migrate(); done(); };
+  const apply = s => { if (s) save = Object.assign(defaults(), s); migrate(); applyEpoch(); done(); };
   if (!cloud) return apply(local);
   let finished = false;
   const fallback = setTimeout(() => { if (!finished) { finished = true; apply(local); } }, 2500);

@@ -182,8 +182,11 @@ input[type=range]{accent-color:var(--amber);width:140px}
   <section class="pane" data-pane="rules" hidden>
     <h2>Тактика</h2>
     <p class="hint">Правила проверяются сверху вниз каждое мгновение боя. Первое подходящее «взять» решает, что у героя в руке. «Отскочить» уводит героя на шаг назад: так можно уйти от огненного выдоха.</p>
+    <div class="list" id="tips"></div>
+    <h3>Ваши правила</h3>
     <div class="list" id="rules"></div>
     <div><button id="addRule">+ Добавить правило</button></div>
+    <div class="list" id="presets"></div>
   </section>
   <section class="pane" data-pane="craft" hidden>
     <h2>Мастерская</h2>
@@ -209,7 +212,7 @@ input[type=range]{accent-color:var(--amber);width:140px}
   <div class="in" id="tabs">
     <button class="tab" id="tab-map" data-tab="map"><span class="ic">▲</span>Карта</button>
     <button class="tab" id="tab-equip" data-tab="equip"><span class="ic">†</span>Вещи</button>
-    <button class="tab" id="tab-rules" data-tab="rules"><span class="ic">»</span>Тактика</button>
+    <button class="tab" id="tab-rules" data-tab="rules"><span class="ic">»</span>Тактика<i class="dot" id="dot-rules" hidden></i></button>
     <button class="tab" id="tab-craft" data-tab="craft"><span class="ic">¤</span>Крафт<i class="dot" id="dot-craft" hidden></i></button>
     <button class="tab" id="tab-soul" data-tab="soul"><span class="ic">✦</span>Душа<i class="dot soul" id="dot-soul" hidden></i></button>
     <button class="tab" id="tab-quests" data-tab="quests"><span class="ic">!</span>Задания<i class="dot good" id="dot-quests" hidden></i></button>
@@ -646,7 +649,7 @@ const defaults = () => ({ shards: 0, xp: 0, lvl: 1, potions: 2, items: { sword: 
   sel: 0, auto: false, speed: 1, kills: 0, log: [], mats: {}, sound: true, vol: 60, tab: 'map',
   sparks: 0, perks: {}, rebirths: 0, lifeBest: 0, best: 0, seen: 1,
   rar: {}, ach: {}, st: { kills: 0, bosses: {}, crafts: 0, dodges: 0, quests: 0, shardsTotal: 0, legend: 0, fists: false, nopot3: false },
-  daily: null, idle: null, epoch: 0, tut: {}, towerFloor: 1, towerBest: 0, forged: {} });
+  daily: null, idle: null, epoch: 0, tut: {}, towerFloor: 1, towerBest: 0, forged: {}, tipsOff: {} });
 let save = defaults();
 // номер «эпохи сброса» приходит от бота в ссылке на игру (?epoch=N)
 const URL_EPOCH = +(new URLSearchParams(location.search).get('epoch') || 0);
@@ -957,7 +960,7 @@ function startRun(i) {
   tutDone('go');
   run = { i, loc, S, x: 0, hp: 0, max: 0, en, proj: [], fx: [], sh: 0, xp: 0, t: 0, cd: { main: 0, off: 0 }, anim: { main: 0, off: 0 },
     potCd: 0, hurt: 0, over: null, overT: 0, main: save.main || 'fist', off: save.off, walk: 0, chest: null, swap: 0, mats: {},
-    drank: 0, fistOnly: true, dodgeT: 0, dodgeCd: 0, lastDodge: -9 };
+    drank: 0, fistOnly: true, dodgeT: 0, dodgeCd: 0, lastDodge: -9, ruleOn: [], ruleHits: [], cause: null };
   run.max = run.hp = heroMax();
   log(`Поход в «${loc.name}» начат.`, 'hero');
   dirty.all = true;
@@ -966,7 +969,7 @@ const dist = e => e.x - (run.x + 3);
 const fx = (wx, y, text, c) => { if (!SIM) run.fx.push({ wx, y, text, c, life: 1 }); };
 
 function drink() {
-  if (save.potions <= 0 || run.potCd > 0 || run.hp >= run.max) return;
+  if (save.potions <= 0 || run.potCd > 0 || run.hp >= run.max) return false;
   save.potions--; run.potCd = 3; run.drank++;
   const h = Math.round(run.max * .5);
   run.hp = Math.min(run.max, run.hp + h);
@@ -974,11 +977,18 @@ function drink() {
   SFX.play('potion');
   log(`Выпито зелье: +${fmt(h)} ХП. Осталось ${save.potions}.`, 'good');
   dirty.equip = true;
+  return true;
 }
 function dodge() {
-  if (run.dodgeCd > 0) return;
+  if (run.dodgeCd > 0) return false;
   run.dodgeT = .4; run.dodgeCd = 2.5; run.lastDodge = run.t;
   SFX.play('dodge');
+  return true;
+}
+// правило сработало: считаем и коротко показываем над героем, чтобы тактику было видно в бою
+function ruleHit(idx, label) {
+  run.ruleHits[idx] = (run.ruleHits[idx] || 0) + 1;
+  if (label) fx(run.x + 1, 3, '⚙ ' + label, '#e3a547');
 }
 
 function testRule(r, c) {
@@ -1003,18 +1013,23 @@ function applyRules(near, front) {
   const c = { hp: run.hp / run.max * 100, count: near.length, boss: near.some(e => e.boss), near: front ? dist(front) : 99,
     charge: near.some(e => e.charge > 0), shield: near.some(e => e.shield > 0 || e.mech === 'mirror'),
     fly: !!(front && front.fly), ranged: !!(front && front.proj) };
-  for (const r of save.rules) {
-    if (!testRule(r, c)) continue;
-    if (r.act === 'potion') drink();
-    else if (r.act === 'dodge') dodge();
-    else if (r.act === 'retreat') { end('retreat'); return; }
+  save.rules.forEach((r, idx) => {
+    const on = testRule(r, c), was = run.ruleOn[idx];
+    run.ruleOn[idx] = on;
+    if (!on || run.over) return;
+    if (r.act === 'potion') { if (drink()) ruleHit(idx); }
+    else if (r.act === 'dodge') { if (dodge()) ruleHit(idx, 'отскок'); }
+    else if (r.act === 'retreat') { ruleHit(idx); end('retreat'); }
     else if (r.act === 'equip' && save.items[r.item]) {
       const it = ITEMS[r.item];
-      if (it.two) { if (!gotMain && !gotOff) { main = r.item; off = null; gotMain = gotOff = true; } }
-      else if (it.kind === 'off') { if (!gotOff) { off = r.item; gotOff = true; if (ITEMS[main].two) main = 'fist'; } }
-      else if (!gotMain) { main = r.item; gotMain = true; if (off === r.item) off = null; }
+      let took = false;
+      if (it.two) { if (!gotMain && !gotOff) { main = r.item; off = null; gotMain = gotOff = took = true; } }
+      else if (it.kind === 'off') { if (!gotOff) { off = r.item; gotOff = took = true; if (ITEMS[main].two) main = 'fist'; } }
+      else if (!gotMain) { main = r.item; gotMain = took = true; if (off === r.item) off = null; }
+      if (took && !was && r.item !== save.main && r.item !== save.off) ruleHit(idx, ITEMS[r.item].name);
     }
-  }
+  });
+  if (run.over) return;
   if (main !== run.main || off !== run.off) {
     run.main = main; run.off = off;
     run.cd.main = Math.max(run.cd.main, .3); run.cd.off = Math.max(run.cd.off, .3);
@@ -1204,6 +1219,8 @@ function end(kind) {
   const ms = Object.entries(run.mats).map(([m, n]) => `${MATS[m].name} ×${n}`).join(', ');
   if (ms) log(`Материалы за поход: ${ms}.`, 'loot');
   run.banked = gain;
+  save.rules.forEach((r, i) => { r.hits = run.ruleHits[i] || 0; });
+  if (kind === 'lose' && tactTips().length) log('Совет: во вкладке «Тактика» есть правило, которое помогло бы в этом бою. Оно добавляется одной кнопкой.', 'hero');
   save.shards += gain; save.st.shardsTotal += gain;
   checkAch();
   persist();
@@ -1599,12 +1616,64 @@ function renderEquip() {
   setHTML($('#equip'), h);
 }
 
+// ---------- Советы и готовые наборы тактики ----------
+const HEAVY = ['hammer', 'axe'], RANGED = ['starbow', 'bow', 'wand'], AOE = ['hammer', 'staff'];
+const ruleKey = r => `${r.cond}|${r.act}|${r.act === 'equip' ? r.item : ''}`;
+const hasRule = r => save.rules.some(x => ruleKey(x) === ruleKey(r));
+const spare = list => list.find(id => id !== (save.main || 'fist') && save.items[id]);
+const mkRule = (cond, act, item, val = 0) => ({ cond, val, act, item: item || save.main || 'sword' });
+// советуем правило, только когда у игрока есть всё нужное и ситуация ему уже встречалась
+function tactTips() {
+  const t = [], main = save.main || 'fist';
+  const add = (id, text, rule) => { if (!save.tipsOff[id] && !hasRule(rule)) t.push({ id, text, rule }); };
+  add('potion', 'Пить зелье, когда ХП ниже 40%. Без этого правила зелья лежат без дела.', mkRule('hp_lt', 'potion', null, 40));
+  if (save.unlocked >= 4) add('dodge', 'Отскакивать, когда хозяин земли готовит удар: огненный выдох Пепельного змея пролетит мимо.', mkRule('boss_charge', 'dodge'));
+  const heavy = spare(HEAVY);
+  if (heavy && save.unlocked >= 2) add('heavy', `Брать «${ITEMS[heavy].name}», когда у врага щит: тяжёлое оружие пробивает каменную шкуру втрое быстрее.`, mkRule('shield', 'equip', heavy));
+  const rng = spare(RANGED);
+  if (rng && !ITEMS[main].proj) add('fly', `Брать «${ITEMS[rng].name}», когда враг летает: по летунам удобнее стрелять.`, mkRule('fly', 'equip', rng));
+  const aoe = spare(AOE);
+  if (aoe) add('aoe', `Брать «${ITEMS[aoe].name}», когда врагов рядом 3 и больше: он бьёт всех сразу.`, mkRule('foes_ge', 'equip', aoe, 3));
+  if (save.items.mirror && save.off !== 'mirror') add('mirror', 'Брать «Зеркальный щит», когда враг стреляет: он отбивает снаряды обратно.', mkRule('ranged', 'equip', 'mirror'));
+  return t;
+}
+const PRESETS = {
+  safe: { name: 'Осторожная', desc: 'зелье при ХП ниже 55%, отскок от удара хозяина, зеркало против стрелков' },
+  boss: { name: 'Против хозяев', desc: 'зелье при 40%, отскок, тяжёлое оружие против щитов' },
+  all:  { name: 'На все случаи', desc: 'всё сразу: зелья, отскок, щиты, летуны и толпы' },
+};
+function presetRules(kind) {
+  const R = [mkRule('hp_lt', 'potion', null, kind === 'safe' ? 55 : 40), mkRule('boss_charge', 'dodge')];
+  const heavy = spare(HEAVY), rng = spare(RANGED), aoe = spare(AOE);
+  if (kind !== 'safe' && heavy) R.push(mkRule('shield', 'equip', heavy));
+  if (kind === 'all' && rng) R.push(mkRule('fly', 'equip', rng));
+  if (kind === 'all' && aoe) R.push(mkRule('foes_ge', 'equip', aoe, 3));
+  if (kind !== 'boss' && save.items.mirror) R.push(mkRule('ranged', 'equip', 'mirror'));
+  return R;
+}
+let presetArm = null;
+function applyPreset(kind) {
+  if (!presetArm || presetArm.kind !== kind || presetArm.until < performance.now()) {
+    presetArm = { kind, until: performance.now() + 4000 }; dirty.rules = true; return;
+  }
+  presetArm = null;
+  save.rules = presetRules(kind);
+  log(`Включена тактика «${PRESETS[kind].name}»: правил ${save.rules.length}.`, 'hero');
+  dirty.rules = true; persist();
+}
+
 const CONDS = { hp_lt: 'ХП ниже, %', hp_gt: 'ХП выше, %', foes_ge: 'врагов рядом ≥', near: 'враг ближе', far: 'враг дальше',
   boss: 'рядом хозяин земли', boss_charge: 'хозяин готовит удар', shield: 'у врага щит или зеркало', fly: 'враг летает', ranged: 'враг стреляет',
   pots_lt: 'зелий меньше', always: 'всегда' };
 const NEEDS = { hp_lt: 1, hp_gt: 1, foes_ge: 1, near: 1, far: 1, pots_lt: 1 };
 const ACTS = { potion: 'выпить зелье', equip: 'взять', dodge: 'отскочить', retreat: 'отступить из похода' };
 function renderRules() {
+  const tips = tactTips();
+  setHTML($('#tips'), tips.length ? '<h3>Советы</h3>' + tips.map(t => `<div class="item tip"><span class="n">${esc(t.text)}</span>
+    <div class="acts"><button class="primary" id="tip-${t.id}" data-tip="${t.id}">Добавить</button><button id="tipx-${t.id}" data-tipx="${t.id}" aria-label="Скрыть совет">✕</button></div></div>`).join('') : '');
+  const armed = presetArm && presetArm.until > performance.now() ? presetArm.kind : null;
+  setHTML($('#presets'), '<h3>Готовые наборы</h3>' + Object.entries(PRESETS).map(([k, p]) => `<div class="item"><span class="n">${p.name}</span><span class="d">${p.desc}</span>
+    <div class="acts"><button id="pre-${k}" data-preset="${k}" class="${armed === k ? 'soul armed' : ''}">${armed === k ? 'Заменить правила?' : 'Включить'}</button></div></div>`).join(''));
   const owned = Object.keys(ITEMS).filter(id => save.items[id] && !ITEMS[id].hidden);
   setHTML($('#rules'), save.rules.length ? save.rules.map((r, i) => `<div class="rule" data-i="${i}">
     <span class="kw">если</span>
@@ -1613,6 +1682,7 @@ function renderRules() {
     <span class="kw">→</span>
     <select id="r${i}-act" data-f="act" aria-label="Действие">${Object.entries(ACTS).map(([k, v]) => `<option value="${k}" ${k === r.act ? 'selected' : ''}>${v}</option>`).join('')}</select>
     ${r.act === 'equip' ? `<select id="r${i}-item" data-f="item" aria-label="Предмет">${owned.map(id => `<option value="${id}" ${id === r.item ? 'selected' : ''}>${esc(ITEMS[id].name)}</option>`).join('')}${save.items[r.item] ? '' : `<option value="${r.item}" selected disabled>нет предмета</option>`}</select>` : ''}
+    ${r.hits != null ? `<span class="hint">${r.hits ? `сработало ${r.hits} раз` : 'не срабатывало'} в прошлом походе</span>` : ''}
     <span class="sp"></span>
     <button id="r${i}-up" data-r="up" aria-label="Выше" ${i ? '' : 'disabled'}>↑</button><button id="r${i}-del" data-r="del" aria-label="Удалить">✕</button>
   </div>`).join('') : '<p class="hint">Правил нет: герой бьёт тем, что в руках, и не пьёт зелья.</p>');
@@ -1736,6 +1806,7 @@ function renderLog() {
 }
 
 function updateBadges() {
+  $('#dot-rules').hidden = !tactTips().length;
   $('#dot-craft').hidden = !RECIPES.some(r => recipeTier(r) <= save.seen && canCraft(r));
   $('#dot-soul').hidden = !(Object.entries(PERKS).some(([k, p]) => pl(k) < p.max && save.sparks >= perkCost(pl(k))) || (sparksFor(save.lifeBest) && !save.rebirths));
   $('#dot-quests').hidden = !(save.daily && (!save.daily.login || save.daily.q.some(q => q.done && !q.claimed)));
@@ -1863,6 +1934,22 @@ $('#rules').addEventListener('click', e => {
   if (b.dataset.r === 'del') save.rules.splice(i, 1);
   else if (i > 0) [save.rules[i - 1], save.rules[i]] = [save.rules[i], save.rules[i - 1]];
   dirty.rules = true; persist();
+});
+$('#tips').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b) return;
+  const tip = tactTips().find(t => t.id === (b.dataset.tip || b.dataset.tipx));
+  if (!tip) return;
+  if (b.dataset.tip) {
+    // зелья и отскок ставим первыми, остальное сразу после них
+    const pos = tip.rule.act === 'equip' ? save.rules.filter(r => r.act !== 'equip').length : 0;
+    save.rules.splice(pos, 0, tip.rule);
+    log(`Добавлено правило: ${tip.text.split('.')[0]}.`, 'hero');
+    SFX.play('craft');
+  } else save.tipsOff[tip.id] = true;
+  dirty.rules = true; updateBadges(); persist();
+});
+$('#presets').addEventListener('click', e => {
+  const b = e.target.closest('[data-preset]'); if (b) applyPreset(b.dataset.preset);
 });
 $('#addRule').addEventListener('click', () => {
   save.rules.push({ cond: 'foes_ge', val: 3, act: 'equip', item: save.main || 'sword' });

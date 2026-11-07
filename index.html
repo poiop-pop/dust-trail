@@ -1,0 +1,1146 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>Пыльная Тропа</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Unbounded:wght@600;800&display=swap">
+<style>
+/* Layout: ASCII-экран сверху как главное окно, под ним четыре рабочие панели (2×2, на телефоне в столбик) */
+:root{
+  --bg:#161922; --screen:#0e1016; --panel:#1d212c; --line:#2e3444;
+  --fg:#d9d3c3; --dim:#8b909e; --amber:#e3a547; --hero:#86c5bd; --foe:#de7a62; --good:#9ccf7a;
+  --display:'Unbounded','Arial Black',system-ui,sans-serif;
+  --mono:'IBM Plex Mono',ui-monospace,Consolas,'Courier New',monospace;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+html,body{background:var(--bg);color:var(--fg);margin:0;-webkit-tap-highlight-color:transparent}
+button{touch-action:manipulation}
+body{font-family:var(--mono);font-size:14px;line-height:1.5;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 48px}
+.wrap{max-width:1080px;margin:0 auto;display:flex;flex-direction:column;gap:16px}
+header{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:6px 24px}
+h1{font-family:var(--display);font-weight:800;font-size:clamp(22px,4vw,32px);letter-spacing:.01em;margin:0;text-wrap:balance}
+h1 span{color:var(--amber)}
+.stats{display:flex;gap:18px;flex-wrap:wrap;color:var(--dim);font-variant-numeric:tabular-nums}
+.stats b{color:var(--fg);font-weight:600}
+.stats .sh b{color:var(--amber)}
+.screen{background:var(--screen);border:1px solid var(--line);border-radius:4px;padding:12px;display:flex;flex-direction:column;gap:10px}
+.hud{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) auto;gap:8px 18px;align-items:center;font-size:12px;color:var(--dim);font-variant-numeric:tabular-nums}
+.bar{display:flex;align-items:center;gap:8px;min-width:0}
+.bar .track{flex:1;height:8px;background:var(--line);border-radius:2px;overflow:hidden;min-width:40px}
+.bar .fill{height:100%;background:var(--hero);transition:width .15s linear}
+.bar.prog .fill{background:var(--dim)}
+.bar.boss .fill{background:var(--foe)}
+.bar span{white-space:nowrap}
+.hud .pots{white-space:nowrap}
+.hud .boss{grid-column:1/-1}
+[hidden]{display:none!important}
+canvas{display:block;width:100%;image-rendering:auto}
+.controls{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px}
+.hint{color:var(--dim);font-size:12px}
+button,select,input{font-family:var(--mono);font-size:13px;color:var(--fg)}
+button{background:transparent;border:1px solid var(--line);border-radius:3px;padding:5px 10px;cursor:pointer}
+button:hover:not(:disabled){border-color:var(--amber);color:var(--amber)}
+button:focus-visible,select:focus-visible,input:focus-visible{outline:2px solid var(--amber);outline-offset:1px}
+button:disabled{opacity:.4;cursor:default}
+button.primary{background:var(--amber);border-color:var(--amber);color:var(--screen);font-weight:600;padding:6px 16px}
+button.primary:hover:not(:disabled){background:transparent;color:var(--amber)}
+button.on{border-color:var(--hero);color:var(--hero)}
+.seg{display:flex;gap:4px}
+.sound{display:flex;align-items:center;gap:8px}
+.sound input{width:90px;accent-color:var(--amber)}
+.sound input:disabled{opacity:.4}
+label{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--dim);font-size:13px}
+select,input[type=number]{background:var(--screen);border:1px solid var(--line);border-radius:3px;padding:3px 4px}
+input[type=number]{width:52px}
+.panels{display:grid;grid-template-columns:1fr;gap:16px}
+@media (min-width:760px){.panels{grid-template-columns:1fr 1fr}}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:4px;padding:14px 16px;display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel h2{font-family:var(--display);font-weight:600;font-size:13px;letter-spacing:.12em;text-transform:uppercase;margin:0;color:var(--dim)}
+.loc{display:grid;grid-template-columns:auto 1fr auto;gap:2px 10px;align-items:center;padding:8px 10px;border:1px solid var(--line);border-radius:3px;cursor:pointer;background:transparent;text-align:left;width:100%}
+.loc .t{font-weight:600}
+.loc .sub{grid-column:2/4;color:var(--dim);font-size:12px}
+.loc .tier{color:var(--dim);font-size:12px;font-variant-numeric:tabular-nums}
+.loc.sel{border-color:var(--amber)}
+.loc.sel .mark{color:var(--amber)}
+.loc.locked{cursor:default;opacity:.45}
+.list{display:flex;flex-direction:column;gap:6px}
+.slots{display:grid;grid-template-columns:auto 1fr auto;gap:6px 10px;align-items:center;font-size:13px}
+.slots .k{color:var(--dim)}
+.item{display:grid;grid-template-columns:1fr auto;gap:2px 10px;padding:8px 10px;border:1px solid var(--line);border-radius:3px}
+.item .n{font-weight:600}
+.item .n em{font-style:normal;color:var(--amber);font-weight:500}
+.item .d{color:var(--dim);font-size:12px;grid-column:1/2}
+.item .acts{grid-row:1/3;grid-column:2;display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;align-content:center;max-width:220px}
+.item.eq{border-color:var(--hero)}
+.tag{font-size:11px;color:var(--hero);letter-spacing:.06em;text-transform:uppercase;margin-left:6px}
+.rule{display:flex;flex-wrap:wrap;align-items:center;gap:6px;padding:6px 8px;border:1px solid var(--line);border-radius:3px}
+.rule .kw{color:var(--amber);font-size:12px;text-transform:uppercase;letter-spacing:.08em}
+.rule .sp{flex:1}
+.rule button{padding:2px 8px}
+@media (min-width:760px){.panel.wide{grid-column:1/-1}}
+.mats{display:flex;flex-wrap:wrap;gap:6px}
+.mat{border:1px solid var(--line);border-radius:3px;padding:2px 8px;font-size:12px;color:var(--dim);white-space:nowrap}
+.mat::before{content:'◆';color:var(--mc);margin-right:5px}
+.mat b{color:var(--fg);font-weight:600;font-variant-numeric:tabular-nums}
+.recipe .acts{grid-row:1/4}
+.need{font-variant-numeric:tabular-nums}
+.need .miss{color:var(--foe)}
+#log{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:320px;overflow-y:auto;font-size:12.5px}
+#log li{color:var(--dim)}
+#log li.loot{color:var(--amber)}
+#log li.bad{color:var(--foe)}
+#log li.good{color:var(--good)}
+#log li.hero{color:var(--hero)}
+@media (max-width:520px){.hud{grid-template-columns:1fr auto}.hud .prog{grid-column:1/-1;grid-row:2}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header>
+    <h1>Пыльная <span>Тропа</span></h1>
+    <div class="stats" id="stats"></div>
+  </header>
+
+  <section class="screen" aria-label="Экран похода">
+    <div class="hud">
+      <div class="bar hp"><span>ХП</span><div class="track"><div class="fill" id="hpFill"></div></div><span id="hpTxt"></span></div>
+      <div class="bar prog"><span>Путь</span><div class="track"><div class="fill" id="progFill"></div></div><span id="progTxt"></span></div>
+      <div class="pots" id="pots"></div>
+      <div class="bar boss" id="bossBar" hidden><span id="bossName"></span><div class="track"><div class="fill" id="bossFill"></div></div><span id="bossTxt"></span></div>
+    </div>
+    <canvas id="cv" aria-label="Герой идёт по тропе"></canvas>
+    <div class="controls">
+      <button class="primary" id="go">В путь</button>
+      <div class="seg" role="group" aria-label="Скорость">
+        <button id="sp1" data-speed="1">1×</button><button id="sp2" data-speed="2">2×</button><button id="sp4" data-speed="4">4×</button>
+      </div>
+      <label for="auto"><input type="checkbox" id="auto"> Повторять поход</label>
+      <div class="sound"><button id="snd" aria-pressed="true">Звук вкл</button><input type="range" id="vol" min="0" max="100" step="5" aria-label="Громкость"></div>
+      <span class="hint" id="status"></span>
+    </div>
+  </section>
+
+  <div class="panels">
+    <section class="panel"><h2>Карта земель</h2><div class="list" id="map"></div></section>
+    <section class="panel"><h2>Снаряжение</h2><div id="equip" class="list"></div></section>
+    <section class="panel">
+      <h2>Тактика</h2>
+      <p class="hint" style="margin:0">Правила проверяются сверху вниз каждое мгновение боя. Первое подходящее «взять» решает, что у героя в руке.</p>
+      <div class="list" id="rules"></div>
+      <div><button id="addRule">+ Добавить правило</button></div>
+    </section>
+    <section class="panel">
+      <h2>Мастерская</h2>
+      <p class="hint" style="margin:0">Материалы падают с врагов и остаются у вас даже после поражения. Если предмет уже есть, рецепт перекуёт его на уровень выше.</p>
+      <div class="list" id="craft"></div>
+    </section>
+    <section class="panel wide"><h2>Журнал</h2><ol id="log"></ol></section>
+  </div>
+</div>
+
+<script>
+(() => {
+const $ = s => document.querySelector(s);
+const COLS = 64, ROWS = 16, HX = 12, WALK = 7, KEY = 'dust-trail-save-v1';
+const AGGRO = 20;   // дальше любого оружия героя, чтобы враги не стояли под обстрелом
+const sp = s => s.replace(/^\n/, '').split('\n');
+const rnd = (a, b) => a + Math.random() * (b - a);
+const ri = (a, b) => Math.floor(rnd(a, b + 1));
+const pick = a => a[Math.floor(Math.random() * a.length)];
+const mod = (a, n) => ((a % n) + n) % n;
+const hash = n => { const x = Math.sin(n * 12.9898 + 78.233) * 43758.5453; return x - Math.floor(x); };
+const mult = l => Math.pow(1.35, l - 1);
+const xpNeed = l => Math.round(8 * Math.pow(l, 1.6));
+const upCost = l => Math.round(8 * Math.pow(1.55, l - 1));
+const POT_COST = 15, POT_MAX = 5;
+
+// ---------- Предметы ----------
+const ITEMS = {
+  fist:   { name: 'Кулаки', kind: 'weapon', dmg: 1, cd: .7, range: 2, glyph: ['', ''], hidden: true },
+  sword:  { name: 'Ржавый меч', kind: 'weapon', dmg: 3, cd: .8, range: 3, glyph: ['/', '—'], desc: 'ближний бой' },
+  dagger: { name: 'Кинжал', kind: 'weapon', dmg: 1.4, cd: .35, range: 2, glyph: ["'", '-'], desc: 'частые уколы' },
+  axe:    { name: 'Колун', kind: 'weapon', dmg: 7, cd: 1.6, range: 3, glyph: ['P', '='], desc: 'медленно, но больно' },
+  bow:    { name: 'Охотничий лук', kind: 'weapon', two: true, dmg: 2, cd: 1.1, range: 14, proj: '>', glyph: [')', '}'], desc: 'стреляет издалека, двуручный' },
+  staff:  { name: 'Посох углей', kind: 'weapon', two: true, dmg: 3.2, cd: 2.2, range: 14, aoe: true, glyph: ['¡', '*'], desc: 'жжёт всех в радиусе, двуручный' },
+  shield: { name: 'Дощатый щит', kind: 'off', block: .22, glyph: ['[', '['], desc: 'гасит часть урона' },
+  charm:  { name: 'Костяной оберег', kind: 'off', regen: .6, glyph: ['§', '§'], desc: 'понемногу лечит' },
+  spear:  { name: 'Копьё', kind: 'weapon', dmg: 3.4, cd: 1, range: 5, glyph: ['|', '—'], desc: 'достаёт дальше меча' },
+  wand:   { name: 'Кристальный жезл', kind: 'weapon', dmg: 1.8, cd: .8, range: 12, proj: '•', glyph: ['!', '*'], desc: 'стреляет, одноручный' },
+  venom:  { name: 'Жало топи', kind: 'weapon', dmg: 1.8, cd: .5, range: 2, poison: 1.5, glyph: ["'", '-'], desc: 'отравляет на 3 с' },
+  spiked: { name: 'Шипастый щит', kind: 'off', block: .28, thorns: .35, glyph: ['#', '#'], desc: 'ранит тех, кто бьёт вплотную' },
+  hammer: { name: 'Пепельный молот', kind: 'weapon', two: true, dmg: 16, cd: 2.4, range: 4, aoe: true, glyph: ['T', '='], desc: 'дробит всех рядом, двуручный' },
+};
+
+// ---------- Враги ----------
+const ENEMIES = {
+  slime: { name: 'Слизень', hp: 6, dmg: 1, cd: 1.2, range: 2, speed: 3, xp: 2, sh: [1, 1], c: '#9ccf7a', spr: sp(String.raw`
+ .--.
+(o  o)`) },
+  wolf: { name: 'Серый волк', hp: 9, dmg: 2, cd: 1, range: 2, speed: 7, xp: 3, sh: [1, 2], c: '#a9a9b4', spr: sp(String.raw`
+   __/\
+~/  o o>
+ /\  /\ `) },
+  oak: { name: 'Древень', hp: 55, dmg: 3, cd: 1.8, range: 3, speed: 1.5, xp: 25, sh: [20, 20], c: '#8fae5f', spr: sp(String.raw`
+ \|/ \|/
+ \(o  o)/
+   |  |
+  /|__|\
+ //    \\ `) },
+
+  bat: { name: 'Нетопырь', hp: 14, dmg: 3, cd: .9, range: 2, speed: 9, fly: true, xp: 5, sh: [2, 4], c: '#b494d6', spr: sp(String.raw`
+/\(oo)/\ `) },
+  skel: { name: 'Скелет', hp: 30, dmg: 5, cd: 1.3, range: 2, speed: 3, xp: 7, sh: [3, 5], c: '#e4e0d4', spr: sp(String.raw`
+ .-.
+(x x)
+ /|\
+ / \ `) },
+  spit: { name: 'Плевун', hp: 20, dmg: 4, cd: 1.6, range: 12, speed: 2, proj: '*', xp: 7, sh: [4, 6], c: '#d9c25a', spr: sp(String.raw`
+ ,-,
+{o_o}`) },
+  worm: { name: 'Каменный червь', hp: 260, dmg: 9, cd: 2, range: 3, speed: 1.5, xp: 80, sh: [60, 60], c: '#a7a3b8', spr: sp(String.raw`
+   ____
+  / oo \
+ |  ww  |
+ |      |~~
+/________\ `) },
+
+  drown: { name: 'Утопленник', hp: 80, dmg: 12, cd: 1.5, range: 2, speed: 2.5, xp: 15, sh: [8, 12], c: '#6fb3a3', spr: sp(String.raw`
+ ~~
+(@@)
+/||\
+ || `) },
+  gnat: { name: 'Гнус', hp: 35, dmg: 8, cd: .7, range: 2, speed: 11, fly: true, xp: 12, sh: [6, 10], c: '#c9b08a', spr: sp(String.raw`
+>-o<`) },
+  toad: { name: 'Жабень', hp: 55, dmg: 10, cd: 1.8, range: 13, speed: 2, proj: 'o', xp: 15, sh: [8, 12], c: '#8fbf5a', spr: sp(String.raw`
+ @..@
+(----)`) },
+  witch: { name: 'Болотная ведьма', hp: 700, dmg: 18, cd: 1.6, range: 14, speed: 1, proj: '%', xp: 250, sh: [180, 180], c: '#b98bd0', spr: sp(String.raw`
+   /\
+  /__\
+ ( oo )
+  /||\%
+ /_||_\ `) },
+
+  imp: { name: 'Огненный бес', hp: 150, dmg: 22, cd: 1, range: 2, speed: 8, xp: 35, sh: [20, 30], c: '#ec8a4e', spr: sp(String.raw`
+ ^ ^
+(>v<)
+ /\ `) },
+  golem: { name: 'Пепельный голем', hp: 400, dmg: 40, cd: 2, range: 3, speed: 2, xp: 50, sh: [30, 40], c: '#a08f86', spr: sp(String.raw`
+ [==]
+[o  o]
+|[  ]|
+ |  | `) },
+  serpent: { name: 'Пепельный змей', hp: 2500, dmg: 55, cd: 1.8, range: 4, speed: 1.2, xp: 1000, sh: [800, 800], c: '#e2603e', spr: sp(String.raw`
+    __/\__
+ ~~( O  O )>
+   /  vv  \
+  /  /  \  \
+ ~~~~    ~~~~`) },
+};
+
+// ---------- Земли ----------
+const LOCS = [
+  { id: 'forest', name: 'Тихий лес', tier: 1, len: 260, pool: ['slime', 'slime', 'wolf'], boss: 'oak', loot: ['dagger', 'shield', 'bow'], biome: 'forest' },
+  { id: 'cave', name: 'Гулкие пещеры', tier: 2, len: 300, pool: ['bat', 'skel', 'spit'], boss: 'worm', loot: ['axe', 'charm', 'bow', 'shield'], biome: 'cave' },
+  { id: 'swamp', name: 'Седая топь', tier: 3, len: 340, pool: ['drown', 'gnat', 'toad'], boss: 'witch', loot: ['staff', 'axe', 'charm'], biome: 'swamp' },
+  { id: 'ash', name: 'Пепельный пик', tier: 4, len: 380, pool: ['imp', 'golem', 'imp'], boss: 'serpent', loot: ['staff', 'axe', 'bow', 'shield', 'charm', 'dagger'], biome: 'ash' },
+];
+
+// ---------- Материалы и рецепты ----------
+const MATS = {
+  goo:      { name: 'Слизь', short: 'слизь', tier: 1, c: '#9ccf7a' },
+  wood:     { name: 'Сухая ветка', short: 'ветка', tier: 1, c: '#b08a5a' },
+  fang:     { name: 'Волчий клык', short: 'клык', tier: 1, c: '#e4e0d4' },
+  bone:     { name: 'Кость', short: 'кость', tier: 2, c: '#cfc7b0' },
+  crystal:  { name: 'Кристалл', short: 'кристалл', tier: 2, c: '#6fb0cf' },
+  reed:     { name: 'Тростник', short: 'тростник', tier: 3, c: '#8fae5f' },
+  bog:      { name: 'Болотная смола', short: 'смола', tier: 3, c: '#6fb3a3' },
+  ember:    { name: 'Тлеющий уголь', short: 'уголь', tier: 4, c: '#ec8a4e' },
+  ashstone: { name: 'Пепельный камень', short: 'камень', tier: 4, c: '#a08f86' },
+};
+// [материал, шанс, мин, макс]
+const DROPS = {
+  slime: [['goo', .6, 1, 2]], wolf: [['fang', .45, 1, 1], ['wood', .35, 1, 2]], oak: [['wood', 1, 6, 10], ['fang', 1, 2, 3]],
+  bat: [['crystal', .2, 1, 1], ['bone', .25, 1, 1]], skel: [['bone', .6, 1, 2]], spit: [['crystal', .45, 1, 1], ['goo', .3, 1, 2]],
+  worm: [['crystal', 1, 6, 8], ['bone', 1, 5, 8]],
+  drown: [['bog', .5, 1, 2], ['reed', .3, 1, 2]], gnat: [['reed', .5, 1, 2]], toad: [['bog', .5, 1, 2], ['goo', .4, 2, 3]],
+  witch: [['bog', 1, 8, 10], ['reed', 1, 8, 10], ['crystal', 1, 4, 6]],
+  imp: [['ember', .55, 1, 2]], golem: [['ashstone', .55, 1, 2]], serpent: [['ember', 1, 12, 15], ['ashstone', 1, 12, 15]],
+};
+const RECIPES = [
+  { out: 'potion', need: { goo: 3, wood: 1 } },
+  { out: 'shield', need: { wood: 8, goo: 2 } },
+  { out: 'bow',    need: { wood: 6, fang: 3 } },
+  { out: 'spear',  need: { wood: 6, fang: 4 } },
+  { out: 'charm',  need: { bone: 6, fang: 3 } },
+  { out: 'wand',   need: { crystal: 5, wood: 4 } },
+  { out: 'axe',    need: { bone: 5, crystal: 2, wood: 4 } },
+  { out: 'venom',  need: { bog: 6, bone: 4, fang: 3 } },
+  { out: 'staff',  need: { bog: 4, crystal: 5, reed: 4 } },
+  { out: 'spiked', need: { bone: 8, crystal: 3, bog: 3 } },
+  { out: 'hammer', need: { ashstone: 8, ember: 6, crystal: 4 } },
+];
+const recipeTier = r => Math.max(...Object.keys(r.need).map(m => MATS[m].tier));
+
+const BIOMES = {
+  forest: { g: '_.__,_"__._,___', gc: '#7a9a5a', d: ' .  ,   .   :   ', dc: '#4d4637',
+    deco: [{ c: '#3d5c3a', s: sp(String.raw`
+   ^
+  ^^^
+ ^^^^^
+^^^^^^^
+   |`) }, { c: '#36502f', s: sp(String.raw`
+ .:;:.
+(:;:;:)`) }, { c: '#41633d', s: sp(String.raw`
+  ^
+ ^^^
+^^^^^
+  |`) }] },
+  cave: { g: '=_=-==_=-=', gc: '#7d7f8f', d: ' .  o   .   ', dc: '#3b3d4a',
+    deco: [{ c: '#4a4d5c', s: sp(String.raw`
+  _
+ / \_
+/    \ `) }, { c: '#5f93ab', s: sp(String.raw`
+ /\
+/**\ `) }] },
+  swamp: { g: '~_~~._~_~~,', gc: '#5f8a7a', d: ' ~  .  ~   ', dc: '#2d4741',
+    deco: [{ c: '#56605a', s: sp(String.raw`
+\ | /
+ \|/
+  |
+ _|_`) }, { c: '#4f6f52', s: sp(String.raw`
+ | ,
+|| |
+||||`) }] },
+  ash: { g: '_^_#_^^_#_', gc: '#9a6a55', d: ' .  *  .  ', dc: '#4d2f29',
+    deco: [{ c: '#5e4a45', s: sp(String.raw`
+ /\
+/  \
+|##|`) }, { c: '#6b4b40', s: sp(String.raw`
+  _
+_/ \_`) }] },
+};
+
+const CAMP = {
+  tent: sp(String.raw`
+    /\
+   /  \
+  / /\ \
+ /_/  \_\ `),
+  fire: [sp(String.raw`
+  (
+ ) )
+(_(_)`), sp(String.raw`
+ )
+( (
+(_)_)`)],
+  hero: sp(String.raw`
+ o
+/|\_
+ |_ `),
+};
+
+// ---------- Сохранение ----------
+const defaults = () => ({ shards: 0, xp: 0, lvl: 1, potions: 2, items: { sword: 1 }, main: 'sword', off: null,
+  unlocked: 1, cleared: {}, rules: [{ cond: 'hp_lt', val: 40, act: 'potion', item: 'sword' }], sel: 0, auto: false, speed: 1, kills: 0, log: [], mats: {}, sound: true, vol: 60 });
+let save = defaults();
+// ---------- Telegram ----------
+const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
+// облако Telegram хранит до 4096 символов на ключ, поэтому журнал туда не пишем
+const cloud = tg && tg.CloudStorage && tg.isVersionAtLeast('6.9') ? tg.CloudStorage : null;
+function setupTelegram() {
+  if (!tg) return;
+  tg.ready();
+  tg.expand();
+  try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
+  try { tg.setHeaderColor('#161922'); tg.setBackgroundColor('#161922'); tg.setBottomBarColor && tg.setBottomBarColor('#161922'); } catch (e) {}
+}
+const HAPTIC = { hurt: ['impact', 'light'], crit: ['impact', 'medium'], thud: ['impact', 'heavy'], boss: ['impact', 'heavy'],
+  item: ['note', 'success'], craft: ['note', 'success'], level: ['note', 'success'], win: ['note', 'success'], lose: ['note', 'error'],
+  click: ['select'] };
+const hapticLast = {};
+function haptic(name) {
+  const h = tg && tg.HapticFeedback && HAPTIC[name];
+  if (!h) return;
+  const now = performance.now();
+  if (hapticLast[name] && now - hapticLast[name] < 120) return;
+  hapticLast[name] = now;
+  try {
+    if (h[0] === 'impact') tg.HapticFeedback.impactOccurred(h[1]);
+    else if (h[0] === 'note') tg.HapticFeedback.notificationOccurred(h[1]);
+    else tg.HapticFeedback.selectionChanged();
+  } catch (e) {}
+}
+// во время похода Telegram спросит, точно ли закрыть игру
+let closingGuard = false;
+function guardClosing(on) {
+  if (!tg || on === closingGuard) return;
+  closingGuard = on;
+  try { on ? tg.enableClosingConfirmation() : tg.disableClosingConfirmation(); } catch (e) {}
+}
+
+function readLocal() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function load(done) {
+  const local = readLocal();
+  const apply = s => { if (s) save = Object.assign(defaults(), s); done(); };
+  if (!cloud) return apply(local);
+  let finished = false;
+  const fallback = setTimeout(() => { if (!finished) { finished = true; apply(local); } }, 2500);
+  cloud.getItem(KEY, (err, val) => {
+    if (finished) return;
+    finished = true; clearTimeout(fallback);
+    let remote = null;
+    try { remote = !err && val ? JSON.parse(val) : null; } catch (e) {}
+    // берём более свежее сохранение, журнал оставляем локальный
+    const pickRemote = remote && (!local || (remote.ts || 0) > (local.ts || 0));
+    apply(pickRemote ? Object.assign({}, remote, { log: local ? local.log : [] }) : local);
+  });
+}
+let cloudT = null;
+function pushCloud() {
+  clearTimeout(cloudT); cloudT = null;
+  const slim = Object.assign({}, save, { log: undefined });
+  try { cloud.setItem(KEY, JSON.stringify(slim)); } catch (e) {}
+}
+function persist(now) {
+  save.ts = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(save)); } catch (e) {}
+  if (!cloud) return;
+  if (now) pushCloud();
+  else if (!cloudT) cloudT = setTimeout(pushCloud, 4000);
+}
+
+const heroMax = () => 20 + 6 * save.lvl;
+function stat(id) {
+  const it = ITEMS[id], l = save.items[id] || 1;
+  const s = { lvl: l };
+  if (it.dmg) s.dmg = it.dmg * mult(l) * (1 + .04 * (save.lvl - 1));
+  if (it.block) s.block = Math.min(.6, it.block + .05 * (l - 1));
+  if (it.regen) s.regen = it.regen * mult(l);
+  if (it.poison) s.poison = it.poison * mult(l) * (1 + .04 * (save.lvl - 1));
+  return s;
+}
+
+// ---------- Журнал ----------
+function log(msg, cls = '') {
+  save.log.unshift({ m: msg, c: cls });
+  if (save.log.length > 50) save.log.length = 50;
+  dirty.log = true;
+}
+
+// ---------- Звук (синтез через Web Audio, без файлов) ----------
+const SFX = (() => {
+  let ac = null, master = null, noiseBuf = null;
+  const last = {};
+  function init() {
+    if (ac) { if (ac.state === 'suspended') ac.resume(); return; }
+    try {
+      ac = new (window.AudioContext || window.webkitAudioContext)();
+      master = ac.createGain(); master.connect(ac.destination); setVol();
+      noiseBuf = ac.createBuffer(1, ac.sampleRate, ac.sampleRate);
+      const d = noiseBuf.getChannelData(0);
+      for (let i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    } catch (e) { ac = null; }
+  }
+  function setVol() { if (master) master.gain.value = save.vol / 100 * .6; }
+  function tone(f, dur, { type = 'square', vol = .2, to = null, delay = 0, attack = .005 } = {}) {
+    const t = ac.currentTime + delay, o = ac.createOscillator(), g = ac.createGain();
+    o.type = type; o.frequency.setValueAtTime(f, t);
+    if (to) o.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(vol, t + attack);
+    g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    o.connect(g).connect(master); o.start(t); o.stop(t + dur + .02);
+  }
+  function noise(dur, { vol = .2, freq = 2000, to = null, q = 1, type = 'bandpass', delay = 0 } = {}) {
+    const t = ac.currentTime + delay, s = ac.createBufferSource(), f = ac.createBiquadFilter(), g = ac.createGain();
+    s.buffer = noiseBuf; f.type = type; f.Q.value = q;
+    f.frequency.setValueAtTime(freq, t);
+    if (to) f.frequency.exponentialRampToValueAtTime(to, t + dur);
+    g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.001, t + dur);
+    s.connect(f).connect(g).connect(master); s.start(t, Math.random() * .5); s.stop(t + dur + .02);
+  }
+  const seq = (notes, o) => notes.forEach(([f, d, len]) => tone(f, len || .16, Object.assign({ delay: d }, o)));
+  const DEFS = {
+    swing:  () => noise(.08, { freq: 2500, to: 700, q: 1.5, vol: .2 }),
+    twang:  () => { tone(520, .18, { type: 'triangle', to: 260, vol: .2 }); noise(.03, { freq: 4000, vol: .08 }); },
+    zap:    () => tone(1200, .12, { type: 'sawtooth', to: 400, vol: .07 }),
+    fire:   () => noise(.35, { type: 'lowpass', freq: 3000, to: 300, vol: .3 }),
+    thud:   () => { tone(140, .25, { type: 'sine', to: 45, vol: .5 }); noise(.1, { type: 'lowpass', freq: 800, vol: .25 }); },
+    hit:    () => tone(220, .05, { to: 110, vol: .07 }),
+    crit:   () => { tone(880, .08, { to: 440, vol: .09 }); tone(220, .06, { to: 110, vol: .07 }); },
+    hurt:   () => { tone(180, .16, { type: 'sawtooth', to: 70, vol: .16 }); noise(.08, { freq: 900, vol: .12 }); },
+    die:    () => tone(400, .18, { to: 90, vol: .09 }),
+    coin:   () => { tone(988, .06, { vol: .07 }); tone(1319, .12, { vol: .07, delay: .06 }); },
+    mat:    () => { tone(660, .08, { type: 'triangle', vol: .12 }); tone(880, .1, { type: 'triangle', vol: .1, delay: .05 }); },
+    item:   () => seq([[523, 0], [659, .07], [784, .14], [1047, .21, .3]], { type: 'triangle', vol: .14 }),
+    craft:  () => { noise(.04, { freq: 3500, vol: .25 }); tone(1200, .5, { type: 'sine', vol: .1 }); tone(1810, .35, { type: 'sine', vol: .05 }); },
+    potion: () => [0, 1, 2, 3].forEach(i => tone(300 + i * 120, .08, { type: 'sine', to: 500 + i * 150, vol: .12, delay: i * .06 })),
+    level:  () => seq([[392, 0], [523, .08], [659, .16], [784, .24, .3]], { vol: .06 }),
+    win:    () => seq([[523, 0, .12], [659, .12, .12], [784, .24, .12], [1047, .38, .5]], { vol: .08 }),
+    lose:   () => seq([[392, 0, .2], [330, .2, .2], [262, .4, .7]], { type: 'triangle', vol: .16 }),
+    retreat:() => tone(330, .2, { type: 'triangle', to: 220, vol: .12 }),
+    swap:   () => { noise(.03, { freq: 5000, vol: .1 }); tone(700, .04, { vol: .04, delay: .03 }); },
+    boss:   () => { tone(55, 1.4, { type: 'sawtooth', vol: .16, attack: .25 }); tone(58, 1.4, { type: 'sawtooth', vol: .1, attack: .25 }); },
+    spit:   () => noise(.08, { freq: 1200, to: 400, q: 4, vol: .1 }),
+    step:   () => noise(.03, { type: 'lowpass', freq: 500, vol: .07 }),
+    click:  () => tone(1000, .025, { vol: .035 }),
+  };
+  const GAP = { hit: .05, step: .12, coin: .08, mat: .08, hurt: .06 };
+  function play(name) {
+    haptic(name);
+    if (!ac || !save.sound || !save.vol) return;
+    const now = ac.currentTime;
+    if (last[name] && now - last[name] < (GAP[name] || .04)) return;
+    last[name] = now;
+    DEFS[name]();
+  }
+  return { init, play, setVol };
+})();
+// браузер разрешает звук только после действия игрока
+['pointerdown', 'keydown'].forEach(ev => document.addEventListener(ev, () => SFX.init()));
+document.addEventListener('click', e => { if (e.target.closest('button:not(:disabled)')) SFX.play('click'); });
+
+// ---------- Поход ----------
+let run = null, campT = 0;
+function mkEnemy(id, x, boss) {
+  const d = ENEMIES[id];
+  return Object.assign({}, d, { id, x, hp: d.hp, maxHp: d.hp, cdT: rnd(.3, d.cd), aggro: false, anim: 0, flash: 0,
+    seed: Math.random() * 9, w: Math.max(...d.spr.map(l => l.length)), boss: !!boss });
+}
+function startRun(i) {
+  const loc = LOCS[i], en = [];
+  let x = 34;
+  while (x < loc.len - 34) {
+    const n = ri(1, loc.tier > 1 ? 3 : 2);
+    for (let k = 0; k < n; k++) { const e = mkEnemy(pick(loc.pool), x); en.push(e); x += e.w + 2; }
+    x += ri(16, 28);
+  }
+  en.push(mkEnemy(loc.boss, loc.len, true));
+  run = { i, loc, x: 0, hp: heroMax(), max: heroMax(), en, proj: [], fx: [], sh: 0, t: 0, cd: { main: 0, off: 0 }, anim: { main: 0, off: 0 },
+    potCd: 0, hurt: 0, over: null, overT: 0, main: save.main || 'fist', off: save.off, walk: 0, chest: null, swap: 0, mats: {} };
+  log(`Поход в «${loc.name}» начат.`, 'hero');
+  dirty.all = true;
+}
+const dist = e => e.x - (run.x + 3);
+const fx = (wx, y, text, c) => run.fx.push({ wx, y, text, c, life: 1 });
+
+function drink() {
+  if (save.potions <= 0 || run.potCd > 0 || run.hp >= run.max) return;
+  save.potions--; run.potCd = 3;
+  const h = Math.round(run.max * .5);
+  run.hp = Math.min(run.max, run.hp + h);
+  fx(run.x, 9, '+' + h, '#9ccf7a');
+  SFX.play('potion');
+  log(`Выпито зелье: +${h} ХП. Осталось ${save.potions}.`, 'good');
+  dirty.equip = true;
+}
+
+function testRule(r, c) {
+  switch (r.cond) {
+    case 'hp_lt': return c.hp < r.val;
+    case 'hp_gt': return c.hp > r.val;
+    case 'foes_ge': return c.count >= r.val;
+    case 'near': return c.near <= r.val;
+    case 'far': return c.near > r.val && c.near < 99;
+    case 'boss': return c.boss;
+    case 'always': return true;
+  }
+  return false;
+}
+function applyRules(near, front) {
+  let main = save.main || 'fist', off = save.off, gotMain = false, gotOff = false;
+  const c = { hp: run.hp / run.max * 100, count: near.length, boss: near.some(e => e.boss), near: front ? dist(front) : 99 };
+  for (const r of save.rules) {
+    if (!testRule(r, c)) continue;
+    if (r.act === 'potion') drink();
+    else if (r.act === 'equip' && save.items[r.item]) {
+      const it = ITEMS[r.item];
+      if (it.two) { if (!gotMain && !gotOff) { main = r.item; off = null; gotMain = gotOff = true; } }
+      else if (it.kind === 'off') { if (!gotOff) { off = r.item; gotOff = true; if (ITEMS[main].two) main = 'fist'; } }
+      else if (!gotMain) { main = r.item; gotMain = true; if (off === r.item) off = null; }
+    }
+  }
+  if (main !== run.main || off !== run.off) {
+    run.main = main; run.off = off;
+    run.cd.main = Math.max(run.cd.main, .3); run.cd.off = Math.max(run.cd.off, .3);
+    run.swap = .4;
+    SFX.play('swap');
+  }
+}
+
+function hitEnemy(e, d, crit, poison) {
+  if (e.hp <= 0) return;
+  e.hp -= d; e.flash = .12; e.aggro = true;
+  if (poison) { e.poison = poison; e.poisonT = 3; }
+  fx(e.x + 1, 7, (crit ? '!' : '') + Math.round(d), crit ? '#ffd27a' : '#ece6d6');
+  SFX.play(crit ? 'crit' : 'hit');
+  if (e.hp <= 0) kill(e);
+}
+function kill(e) {
+  save.kills++;
+  const s = ri(e.sh[0], e.sh[1]);
+  run.sh += s;
+  gainXp(e.xp);
+  fx(e.x + 1, 6, '+' + s + '◆', '#e3a547');
+  SFX.play('die'); SFX.play('coin');
+  for (const [m, chance, a, b] of DROPS[e.id] || []) if (Math.random() < chance) gainMat(m, ri(a, b), e);
+  if (!e.boss && Math.random() < .06) grant(pick(run.loc.loot), false);
+  if (e.boss) {
+    const fresh = run.loc.loot.filter(id => !save.items[id]);
+    run.chest = fresh.length ? pick(fresh) : null;
+    if (run.chest) grant(run.chest, true);
+    else { const b = 30 * run.loc.tier * run.loc.tier; run.sh += b; run.chestSh = b; }
+    end('win');
+  }
+}
+function gainMat(m, n, e) {
+  save.mats[m] = (save.mats[m] || 0) + n;
+  run.mats[m] = (run.mats[m] || 0) + n;
+  fx(e.x + 1, 4, `+${n} ${MATS[m].short}`, MATS[m].c);
+  SFX.play('mat');
+  dirty.craft = true;
+}
+function grant(id, fromChest) {
+  if (!save.items[id]) {
+    save.items[id] = 1;
+    log(`${fromChest ? 'В сундуке' : 'Найдено'}: ${ITEMS[id].name}!`, 'loot');
+    SFX.play('item');
+    if (run) fx(run.x, 5, ITEMS[id].name, '#e3a547');
+  } else {
+    const b = 5 * run.loc.tier;
+    run.sh += b;
+    log(`Повторный ${ITEMS[id].name} разобран на ${b}◆.`, 'loot');
+  }
+  dirty.equip = dirty.rules = true;
+}
+function gainXp(n) {
+  save.xp += n;
+  while (save.xp >= xpNeed(save.lvl)) {
+    save.xp -= xpNeed(save.lvl); save.lvl++;
+    if (run) { run.max = heroMax(); run.hp = Math.min(run.max, run.hp + 6); fx(run.x, 4, 'УРОВЕНЬ ' + save.lvl, '#86c5bd'); }
+    SFX.play('level');
+    log(`Герой достиг ${save.lvl} уровня. Макс. ХП ${heroMax()}.`, 'hero');
+    dirty.equip = true;
+  }
+}
+function heroHit(d, src) {
+  const o = run.off && ITEMS[run.off];
+  if (o && o.thorns && src) hitEnemy(src, d * o.thorns);
+  if (o && o.block) d *= 1 - stat(run.off).block;
+  run.hp -= d; run.hurt = .15;
+  SFX.play('hurt');
+  fx(run.x + 1, 8, '-' + Math.max(1, Math.round(d)), '#de7a62');
+  if (run.hp <= 0) { run.hp = 0; end('lose'); }
+}
+function heroAttack(slot, id, target, near) {
+  const it = ITEMS[id], s = stat(id);
+  const crit = Math.random() < .1;
+  const d = s.dmg * (crit ? 2 : 1);
+  run.anim[slot] = .15;
+  SFX.play(it.proj ? (id === 'wand' ? 'zap' : 'twang') : id === 'hammer' ? 'thud' : it.aoe ? 'fire' : 'swing');
+  if (it.proj) run.proj.push({ x: run.x + 4, y: 11, v: 34, dmg: d, crit, target, glyph: it.proj, hero: true, c: '#ece6d6', poison: s.poison });
+  else if (it.aoe) near.filter(e => dist(e) <= it.range).forEach(e => { hitEnemy(e, d, crit, s.poison); fx(e.x, 9, '*', '#ec8a4e'); });
+  else hitEnemy(target, d, crit, s.poison);
+}
+
+function end(kind) {
+  if (run.over) return;
+  run.over = kind; run.overT = 2.6;
+  SFX.play(kind);
+  const loc = run.loc;
+  let gain = run.sh;
+  if (kind === 'win') {
+    save.cleared[loc.id] = (save.cleared[loc.id] || 0) + 1;
+    if (save.unlocked < LOCS.length && run.i + 1 >= save.unlocked) {
+      save.unlocked = run.i + 2;
+      log(`Открыта новая земля: «${LOCS[run.i + 1].name}».`, 'good');
+    }
+    log(`${ENEMIES[loc.boss].name} повержен! Добыча: ${gain}◆.`, 'good');
+    if (run.i === LOCS.length - 1 && save.cleared[loc.id] === 1) log('Пепельный змей пал. Тропа пройдена, но добычу можно копить дальше.', 'loot');
+  } else if (kind === 'lose') {
+    gain = Math.floor(run.sh / 2);
+    log(`Герой пал в «${loc.name}». Спасено ${gain}◆ из ${run.sh}.`, 'bad');
+  } else {
+    log(`Отступление из «${loc.name}». Унесено ${gain}◆.`);
+  }
+  const ms = Object.entries(run.mats).map(([m, n]) => `${MATS[m].name} ×${n}`).join(', ');
+  if (ms) log(`Материалы за поход: ${ms}.`, 'loot');
+  run.banked = gain;
+  save.shards += gain;
+  persist();
+  dirty.all = true;
+}
+function finish() {
+  const again = save.auto && run.over !== 'retreat';
+  const i = run.i;
+  run = null;
+  if (again) startRun(i);
+  dirty.all = true;
+}
+
+function step(dt) {
+  if (!run) { campT += dt; return; }
+  run.t += dt;
+  for (const f of run.fx) { f.life -= dt * .9; f.y -= dt * 2.2; }
+  run.fx = run.fx.filter(f => f.life > 0);
+  if (run.over) { run.overT -= dt; if (run.overT <= 0) finish(); return; }
+
+  run.potCd -= dt; run.hurt -= dt; run.swap -= dt;
+  const alive = run.en.filter(e => e.hp > 0 && dist(e) < COLS - HX);
+  const near = alive.filter(e => dist(e) < AGGRO);
+  const front = near.reduce((a, e) => (!a || dist(e) < dist(a) ? e : a), null);
+
+  applyRules(near, front);
+  if (run.off && ITEMS[run.off].regen) run.hp = Math.min(run.max, run.hp + stat(run.off).regen * dt);
+
+  const weapons = [['main', run.main], ['off', run.off]].filter(([, id]) => id && ITEMS[id].kind === 'weapon');
+  const maxR = Math.max(2, ...weapons.map(([, id]) => ITEMS[id].range));
+  for (const [slot, id] of weapons) {
+    run.cd[slot] -= dt; run.anim[slot] -= dt;
+    if (front && dist(front) <= ITEMS[id].range && run.cd[slot] <= 0) {
+      heroAttack(slot, id, front, near);
+      run.cd[slot] = ITEMS[id].cd * (slot === 'off' ? 1.15 : 1);
+    }
+  }
+  if (!front || dist(front) > maxR) {
+    run.x += WALK * dt; run.walk += dt;
+    if (Math.floor(run.walk * 4) !== Math.floor((run.walk - dt) * 4)) SFX.play('step');
+  }
+  if (!run.bossSeen && run.en.some(e => e.boss && dist(e) < 40)) { run.bossSeen = true; SFX.play('boss'); }
+
+  // враги
+  let prev = null;
+  for (const e of alive.slice().sort((a, b) => a.x - b.x)) {
+    e.anim -= dt; e.flash -= dt;
+    if (e.poisonT > 0) {
+      e.poisonT -= dt; e.hp -= e.poison * dt;
+      if (e.hp <= 0) { kill(e); if (run.over) return; continue; }
+    }
+    const d = dist(e);
+    if (d < AGGRO) e.aggro = true;
+    if (e.aggro) {
+      if (d > e.range) e.x -= e.speed * dt;
+      e.x = Math.max(e.x, run.x + (e.fly ? 3 : 4));
+      if (!e.fly && prev) e.x = Math.max(e.x, prev.x + prev.w + 1);
+      e.cdT -= dt;
+      if (dist(e) <= e.range && e.cdT <= 0) {
+        e.cdT = e.cd; e.anim = .15;
+        if (e.proj) { run.proj.push({ x: e.x - 1, y: e.fly ? 8 : 11, v: -16, dmg: e.dmg, glyph: e.proj, hero: false, c: e.c }); SFX.play('spit'); }
+        else heroHit(e.dmg, e);
+        if (run.over) return;
+      }
+    }
+    if (!e.fly) prev = e;
+  }
+
+  // снаряды
+  for (const p of run.proj) {
+    p.x += p.v * dt;
+    if (p.hero) {
+      if (p.target.hp <= 0) p.dead = true;
+      else if (p.x >= p.target.x) { hitEnemy(p.target, p.dmg, p.crit, p.poison); p.dead = true; }
+    } else if (p.x <= run.x + 2) { heroHit(p.dmg); p.dead = true; if (run.over) return; }
+  }
+  run.proj = run.proj.filter(p => !p.dead);
+}
+
+// ---------- Отрисовка ----------
+const cv = $('#cv'), ctx = cv.getContext('2d');
+let cw = 8, ch = 14, fs = 13, dpr = 1;
+const gch = new Array(COLS * ROWS), gco = new Array(COLS * ROWS);
+let SCREEN = '#0e1016';
+function sizeCanvas() {
+  dpr = window.devicePixelRatio || 1;
+  const W = cv.clientWidth || 600;
+  const cell = W / COLS;
+  ctx.font = `100px 'IBM Plex Mono', monospace`;
+  const ratio = ctx.measureText('M').width / 100 || .6;
+  fs = cell / ratio; cw = cell; ch = fs * 1.22;
+  cv.style.height = ROWS * ch + 'px';
+  cv.width = Math.round(W * dpr); cv.height = Math.round(ROWS * ch * dpr);
+}
+function put(x, y, c, col) {
+  x = Math.round(x); y = Math.round(y);
+  if (x < 0 || x >= COLS || y < 0 || y >= ROWS) return;
+  gch[y * COLS + x] = c; gco[y * COLS + x] = col;
+}
+function text(x, y, s, col) { for (let i = 0; i < s.length; i++) if (s[i] !== ' ') put(x + i, y, s[i], col); }
+function spr(x, bottom, lines, col) {
+  const top = bottom - lines.length + 1;
+  lines.forEach((l, j) => text(x, top + j, l, col));
+}
+
+function drawGround(B, cam) {
+  const c0 = Math.floor(cam);
+  for (let c = 0; c < COLS; c++) {
+    const wx = c + c0;
+    put(c, 13, B.g[mod(wx, B.g.length)], B.gc);
+    put(c, 14, B.d[mod(wx, B.d.length)], B.dc);
+    put(c, 15, B.d[mod(wx * 3 + 5, B.d.length)], B.dc);
+  }
+}
+function drawBiome(loc, cam, t) {
+  const B = BIOMES[loc.biome];
+  if (loc.biome === 'forest') {
+    const pc = cam * .15;
+    for (let i = Math.floor(pc / 26) - 1; i < Math.floor(pc / 26) + 4; i++) {
+      if (hash(i) < .4) continue;
+      const x = Math.round(i * 26 - pc + hash(i + 3) * 10), y = 1 + Math.floor(hash(i + 7) * 3);
+      text(x, y, ' .--.', '#3d4352'); text(x, y + 1, '(    )', '#3d4352');
+    }
+  } else if (loc.biome === 'cave') {
+    const pat = 'VvV  v V vVv  v  Vv ';
+    for (let c = 0; c < COLS; c++) {
+      const wx = c + Math.floor(cam);
+      put(c, 0, '▀', '#2b2e39');
+      put(c, 1, pat[mod(wx, pat.length)], '#4a4d5c');
+      if (hash(wx) > .85) put(c, 2, "'", '#3b3e4c');
+    }
+  } else if (loc.biome === 'swamp') {
+    for (let y = 4; y <= 6; y++) for (let c = 0; c < COLS; c++) {
+      const wx = Math.floor(c + cam * .3 + t * (y - 3));
+      if (hash(wx * 7 + y) > .82) put(c, y, '~', '#34433f');
+    }
+  } else if (loc.biome === 'ash') {
+    for (let k = 0; k < 26; k++) {
+      const x = mod(hash(k) * COLS - cam * .4 - t * (2 + hash(k + 1) * 3), COLS);
+      const y = mod(hash(k + 9) * 12 + t * (1.5 + hash(k + 4) * 2), 12);
+      put(x, y, k % 3 ? '.' : "'", k % 2 ? '#c4673f' : '#6b5550');
+    }
+  }
+  const pc = cam * .5, spc = 11;
+  for (let i = Math.floor((pc - 12) / spc); i <= Math.ceil((pc + COLS) / spc); i++) {
+    if (hash(i + loc.tier * 100) > .72) continue;
+    const d = B.deco[Math.floor(hash(i * 3 + 1) * B.deco.length)];
+    spr(Math.round(i * spc - pc + hash(i + .3) * 5), 12, d.s, d.c);
+  }
+  drawGround(B, cam);
+}
+
+function drawHero(t) {
+  const walking = run && !run.over && run.walk > 0 && (run.anim.main <= 0 && run.anim.off <= 0);
+  const atk = run && (run.anim.main > 0 || run.anim.off > 0);
+  const col = run && run.hurt > 0 ? '#de7a62' : '#86c5bd';
+  const dead = run && run.over === 'lose';
+  if (dead) { text(HX - 1, 12, '_o/\\_', col); return; }
+  const legs = ['/ \\', ' |\\', '/| '];
+  const lf = walking ? legs[Math.floor(run.walk * 8) % 3] : '/ \\';
+  text(HX, 10, ' o ', col);
+  text(HX, 11, atk ? '-|-' : '/|\\', col);
+  text(HX, 12, lf, col);
+  const m = run ? run.main : save.main || 'fist';
+  const g = ITEMS[m].glyph;
+  if (g[0]) { if (run && run.anim.main > 0) put(HX + 3, 11, g[1], '#ece6d6'); else put(HX + 3, 10, g[0], '#ece6d6'); }
+  const o = run ? run.off : save.off;
+  if (o) put(HX - 1, 11, ITEMS[o].glyph[run && run.anim.off > 0 ? 1 : 0], '#cbb89a');
+  if (run && run.swap > 0) put(HX + 1, 8, '↻', '#e3a547');
+}
+
+function drawEnemies(t) {
+  for (const e of run.en) {
+    if (e.hp <= 0) continue;
+    const sx = Math.round(e.x - run.x + HX) - (e.anim > 0 ? 1 : 0);
+    if (sx > COLS + 2) continue;
+    const bottom = e.fly ? 8 + Math.round(Math.sin(t * 4 + e.seed)) : 12;
+    spr(sx, bottom, e.spr, e.flash > 0 ? '#ffffff' : e.poisonT > 0 ? '#b6e06a' : e.c);
+    if (e.hp < e.maxHp && !e.boss) {
+      const top = bottom - e.spr.length, n = Math.max(3, Math.min(e.w, 6)), f = Math.ceil(n * e.hp / e.maxHp);
+      for (let i = 0; i < n; i++) put(sx + i, top, i < f ? '━' : '─', i < f ? '#de7a62' : '#3a3f4e');
+    }
+  }
+}
+
+function drawBanner() {
+  if (!run || !run.over) return;
+  const L = [];
+  if (run.over === 'win') {
+    L.push('ПОБЕДА', `+${run.banked} ◆`);
+    L.push(run.chest ? 'в сундуке: ' + ITEMS[run.chest].name : (run.chestSh ? `сундук: +${run.chestSh}◆` : ''));
+  } else if (run.over === 'lose') L.push('ГЕРОЙ ПАЛ', `спасено ${run.banked} ◆`, 'улучшите снаряжение');
+  else L.push('ОТСТУПЛЕНИЕ', `унесено ${run.banked} ◆`, '');
+  const w = Math.max(...L.map(s => s.length)) + 6, x = Math.floor((COLS - w) / 2), y = 2;
+  const col = run.over === 'win' ? '#e3a547' : run.over === 'lose' ? '#de7a62' : '#d9d3c3';
+  for (let r = 0; r < L.length + 2; r++) for (let c = 0; c < w; c++) put(x + c, y + r, ' ', col);
+  text(x, y, '+' + '-'.repeat(w - 2) + '+', col);
+  L.forEach((s, j) => { put(x, y + 1 + j, '|', col); put(x + w - 1, y + 1 + j, '|', col); text(x + Math.floor((w - s.length) / 2), y + 1 + j, s, j ? '#d9d3c3' : col); });
+  text(x, y + L.length + 1, '+' + '-'.repeat(w - 2) + '+', col);
+}
+
+function drawCamp(t) {
+  for (let k = 0; k < 40; k++) {
+    const x = Math.floor(hash(k) * COLS), y = Math.floor(hash(k + 50) * 8);
+    if (hash(k + Math.floor(t * 1.5) * .01) > .25) put(x, y, hash(k + 3) > .8 ? '+' : '.', hash(k + 2) > .5 ? '#5a6074' : '#3d4352');
+  }
+  put(52, 2, '(', '#cfc7b0'); put(53, 2, ')', '#cfc7b0');
+  const B = BIOMES.forest;
+  [[3, 0], [40, 2], [56, 0]].forEach(([x, k]) => spr(x, 12, B.deco[k].s, B.deco[k].c));
+  spr(26, 12, CAMP.tent, '#9b8668');
+  spr(17, 12, CAMP.fire[Math.floor(t * 4) % 2], '#e3a547');
+  put(19, 9, Math.floor(t * 3) % 2 ? '.' : "'", '#6b5550');
+  spr(HX - 1, 12, CAMP.hero, '#86c5bd');
+  if (save.main) put(HX + 2, 12, '/', '#ece6d6');
+  drawGround(B, 0);
+}
+
+function render() {
+  gch.fill(' ');
+  if (!run) drawCamp(campT);
+  else {
+    drawBiome(run.loc, run.x, run.t);
+    drawEnemies(run.t);
+    for (const p of run.proj) put(p.x - run.x + HX, p.y, p.glyph, p.c);
+    drawHero(run.t);
+    for (const f of run.fx) {
+      const c = f.life < .35 ? '#6b6f7c' : f.c;
+      text(Math.round(f.wx - run.x + HX - f.text.length / 2 + 1), f.y, f.text, c);
+    }
+    drawBanner();
+  }
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.fillStyle = SCREEN; ctx.fillRect(0, 0, cv.width, cv.height);
+  ctx.font = `500 ${fs}px 'IBM Plex Mono', monospace`;
+  ctx.textBaseline = 'middle';
+  for (let y = 0; y < ROWS; y++) for (let x = 0; x < COLS; x++) {
+    const c = gch[y * COLS + x];
+    if (c === ' ') continue;
+    if (c === '▀') { ctx.fillStyle = gco[y * COLS + x]; ctx.fillRect(x * cw, y * ch, cw + .5, ch * .5); continue; }
+    ctx.fillStyle = gco[y * COLS + x];
+    ctx.fillText(c, x * cw, y * ch + ch / 2);
+  }
+}
+
+// ---------- Интерфейс ----------
+const dirty = { all: true, log: true, equip: true, rules: true, map: true, craft: true };
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+function hud() {
+  const hp = run ? run.hp : heroMax(), max = run ? run.max : heroMax();
+  $('#hpFill').style.width = (hp / max * 100) + '%';
+  $('#hpTxt').textContent = `${Math.ceil(hp)}/${max}`;
+  const p = run ? Math.min(1, run.x / run.loc.len) : 0;
+  $('#progFill').style.width = p * 100 + '%';
+  $('#progTxt').textContent = run ? `${Math.round(p * 100)}%  +${run.sh}◆` : '—';
+  $('#pots').textContent = `зелья ${save.potions}/${POT_MAX}`;
+  const boss = run && !run.over && run.en.find(e => e.boss && e.hp > 0 && dist(e) < 40);
+  $('#bossBar').hidden = !boss;
+  if (boss) {
+    $('#bossName').textContent = boss.name;
+    $('#bossFill').style.width = (boss.hp / boss.maxHp * 100) + '%';
+    $('#bossTxt').textContent = `${Math.ceil(boss.hp)}/${boss.maxHp}`;
+  }
+  $('#stats').innerHTML = `<span>уровень <b>${save.lvl}</b></span><span>опыт <b>${save.xp}/${xpNeed(save.lvl)}</b></span><span class="sh">осколки <b>${save.shards}◆</b></span><span>побеждено <b>${save.kills}</b></span>`;
+}
+
+function renderControls() {
+  const go = $('#go');
+  go.textContent = run ? (run.over ? '…' : 'Отступить') : 'В путь';
+  go.disabled = !!(run && run.over);
+  document.querySelectorAll('[data-speed]').forEach(b => b.classList.toggle('on', +b.dataset.speed === save.speed));
+  $('#auto').checked = save.auto;
+  $('#snd').textContent = save.sound ? 'Звук вкл' : 'Звук выкл';
+  $('#snd').setAttribute('aria-pressed', save.sound);
+  $('#snd').classList.toggle('on', save.sound);
+  $('#vol').value = save.vol; $('#vol').disabled = !save.sound;
+  $('#status').textContent = run ? `${run.loc.name}` : `Привал. Цель: «${LOCS[save.sel].name}»`;
+}
+
+function renderMap() {
+  $('#map').innerHTML = LOCS.map((l, i) => {
+    const locked = i >= save.unlocked, cl = save.cleared[l.id] || 0;
+    if (locked) return `<div class="loc locked"><span class="mark">·</span><span class="t">???</span><span class="tier">круг ${l.tier}</span><span class="sub">Победите босса предыдущей земли</span></div>`;
+    return `<button class="loc ${i === save.sel ? 'sel' : ''}" id="loc-${l.id}" data-loc="${i}">
+      <span class="mark">${i === save.sel ? '▶' : '·'}</span><span class="t">${l.name}</span><span class="tier">круг ${l.tier}</span>
+      <span class="sub">Хозяин: ${ENEMIES[l.boss].name} · ${cl ? 'пройдено ×' + cl : 'не пройдено'}</span></button>`;
+  }).join('');
+}
+
+function itemLine(id) {
+  const it = ITEMS[id], s = stat(id);
+  if (it.kind === 'weapon') return `урон ${s.dmg.toFixed(1)}${s.poison ? ` + яд ${s.poison.toFixed(1)}/с` : ''} · раз в ${it.cd}с · дальность ${it.range} · ${it.desc}`;
+  if (it.block) return `блок ${Math.round(s.block * 100)}%${it.thorns ? ` · шипы ${Math.round(it.thorns * 100)}%` : ''} · ${it.desc}`;
+  return `+${s.regen.toFixed(1)} ХП/с · ${it.desc}`;
+}
+function renderEquip() {
+  const m = save.main, o = save.off, mTwo = m && ITEMS[m].two;
+  let h = `<div class="slots">
+    <span class="k">рука</span><span>${m ? esc(ITEMS[m].name) + ' <span class="hint">ур.' + save.items[m] + '</span>' : 'кулаки'}</span>${m ? '<button id="un-main" data-un="main">Снять</button>' : '<span></span>'}
+    <span class="k">2-я рука</span><span>${mTwo ? '<span class="hint">занята двуручным</span>' : o ? esc(ITEMS[o].name) + ' <span class="hint">ур.' + save.items[o] + '</span>' : '—'}</span>${o ? '<button id="un-off" data-un="off">Снять</button>' : '<span></span>'}
+    <span class="k">зелья</span><span>${save.potions}/${POT_MAX} <span class="hint">лечат 50%</span></span><button id="buyPot" data-buy="1" ${save.shards < POT_COST || save.potions >= POT_MAX ? 'disabled' : ''}>Купить ${POT_COST}◆</button>
+  </div>`;
+  h += Object.keys(ITEMS).filter(id => save.items[id] && !ITEMS[id].hidden).map(id => {
+    const it = ITEMS[id], l = save.items[id], cost = upCost(l), eq = id === m || id === o;
+    let acts = '';
+    if (it.two) acts += id !== m ? `<button id="eq-${id}" data-eq="${id}" data-slot="main">В руки</button>` : '';
+    else if (it.kind === 'weapon') {
+      if (id !== m) acts += `<button id="eq-${id}" data-eq="${id}" data-slot="main">В руку</button>`;
+      if (id !== o) acts += `<button id="eq2-${id}" data-eq="${id}" data-slot="off">Во 2-ю</button>`;
+    } else if (id !== o) acts += `<button id="eq2-${id}" data-eq="${id}" data-slot="off">Во 2-ю</button>`;
+    acts += `<button id="up-${id}" data-up="${id}" ${save.shards < cost ? 'disabled' : ''}>Улучшить ${cost}◆</button>`;
+    return `<div class="item ${eq ? 'eq' : ''}"><span class="n">${esc(it.name)} <em>ур.${l}</em>${eq ? '<span class="tag">в руках</span>' : ''}</span>
+      <span class="d">${itemLine(id)}</span><div class="acts">${acts}</div></div>`;
+  }).join('');
+  setHTML($('#equip'), h);
+}
+
+// перерисовываем панель только когда её содержимое изменилось, чтобы не сбивать фокус и наведение
+function setHTML(el, h) { if (el._h !== h) { el.innerHTML = h; el._h = h; } }
+
+const canCraft = r => Object.entries(r.need).every(([m, n]) => (save.mats[m] || 0) >= n) && (r.out !== 'potion' || save.potions < POT_MAX);
+function renderCraft() {
+  const have = Object.keys(MATS).filter(m => save.mats[m]);
+  let h = `<div class="mats">${have.length ? have.map(m => `<span class="mat" style="--mc:${MATS[m].c}">${MATS[m].name} <b>${save.mats[m]}</b></span>`).join('')
+    : '<span class="hint">Пока пусто. Отправляйтесь в поход.</span>'}</div>`;
+  const open = RECIPES.filter(r => recipeTier(r) <= save.unlocked), hidden = RECIPES.length - open.length;
+  h += open.map(r => {
+    const i = RECIPES.indexOf(r), pot = r.out === 'potion', lvl = !pot && save.items[r.out];
+    const title = pot ? 'Зелье лечения' : ITEMS[r.out].name;
+    const note = pot ? `лечит 50% · сейчас ${save.potions}/${POT_MAX}` : lvl ? `уже есть · перековка до ур.${lvl + 1}` : ITEMS[r.out].desc;
+    const need = Object.entries(r.need).map(([m, n]) => `<span class="${(save.mats[m] || 0) >= n ? '' : 'miss'}">${MATS[m].name} ${save.mats[m] || 0}/${n}</span>`).join(' · ');
+    return `<div class="item recipe"><span class="n">${esc(title)}${lvl ? ` <em>ур.${lvl}</em>` : ''}</span><span class="d">${note}</span><span class="d need">${need}</span>
+      <div class="acts"><button id="cr-${i}" data-craft="${i}" ${canCraft(r) ? '' : 'disabled'}>${pot ? 'Сварить' : lvl ? 'Перековать' : 'Создать'}</button></div></div>`;
+  }).join('');
+  if (hidden) h += `<p class="hint" style="margin:0">Ещё рецептов: ${hidden}. Они откроются в новых землях.</p>`;
+  setHTML($('#craft'), h);
+}
+function craft(i) {
+  const r = RECIPES[i];
+  if (!r || !canCraft(r)) return;
+  for (const [m, n] of Object.entries(r.need)) save.mats[m] -= n;
+  SFX.play(r.out === 'potion' ? 'potion' : 'craft');
+  if (r.out === 'potion') { save.potions++; log('Сварено зелье лечения.', 'good'); }
+  else if (save.items[r.out]) { save.items[r.out]++; log(`${ITEMS[r.out].name} перекован до ур.${save.items[r.out]}.`, 'loot'); }
+  else { save.items[r.out] = 1; log(`Создан предмет: ${ITEMS[r.out].name}!`, 'loot'); }
+  dirty.craft = dirty.equip = dirty.rules = true;
+  persist();
+}
+
+const CONDS = { hp_lt: 'ХП ниже, %', hp_gt: 'ХП выше, %', foes_ge: 'врагов рядом ≥', near: 'враг ближе', far: 'враг дальше', boss: 'рядом босс', always: 'всегда' };
+const NEEDS = { hp_lt: 1, hp_gt: 1, foes_ge: 1, near: 1, far: 1 };
+const ACTS = { potion: 'выпить зелье', equip: 'взять' };
+function renderRules() {
+  const owned = Object.keys(ITEMS).filter(id => save.items[id] && !ITEMS[id].hidden);
+  $('#rules').innerHTML = save.rules.length ? save.rules.map((r, i) => `<div class="rule" data-i="${i}">
+    <span class="kw">если</span>
+    <select id="r${i}-cond" data-f="cond" aria-label="Условие">${Object.entries(CONDS).map(([k, v]) => `<option value="${k}" ${k === r.cond ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    ${NEEDS[r.cond] ? `<input id="r${i}-val" type="number" data-f="val" min="0" max="100" value="${r.val}" aria-label="Значение">` : ''}
+    <span class="kw">→</span>
+    <select id="r${i}-act" data-f="act" aria-label="Действие">${Object.entries(ACTS).map(([k, v]) => `<option value="${k}" ${k === r.act ? 'selected' : ''}>${v}</option>`).join('')}</select>
+    ${r.act === 'equip' ? `<select id="r${i}-item" data-f="item" aria-label="Предмет">${owned.map(id => `<option value="${id}" ${id === r.item ? 'selected' : ''}>${esc(ITEMS[id].name)}</option>`).join('')}</select>` : ''}
+    <span class="sp"></span>
+    <button id="r${i}-up" data-r="up" aria-label="Выше" ${i ? '' : 'disabled'}>↑</button><button id="r${i}-del" data-r="del" aria-label="Удалить">✕</button>
+  </div>`).join('') : '<p class="hint" style="margin:0">Правил нет: герой бьёт тем, что в руках, и не пьёт зелья.</p>';
+}
+
+function renderLog() {
+  $('#log').innerHTML = save.log.map(e => `<li class="${e.c}">${esc(e.m)}</li>`).join('');
+}
+
+function equip(id, slot) {
+  const it = ITEMS[id];
+  if (it.two) { save.main = id; save.off = null; }
+  else if (slot === 'off') { if (save.main === id) save.main = null; if (save.main && ITEMS[save.main].two) save.main = null; save.off = id; }
+  else { if (save.off === id) save.off = null; save.main = id; }
+  dirty.equip = true; persist();
+}
+
+// события
+$('#go').addEventListener('click', () => {
+  if (run) { if (!run.over) end('retreat'); }
+  else startRun(save.sel);
+});
+document.querySelectorAll('[data-speed]').forEach(b => b.addEventListener('click', () => { save.speed = +b.dataset.speed; dirty.all = true; persist(); }));
+$('#auto').addEventListener('change', e => { save.auto = e.target.checked; persist(); });
+$('#snd').addEventListener('click', () => { save.sound = !save.sound; dirty.all = true; persist(); });
+$('#vol').addEventListener('input', e => { save.vol = +e.target.value; SFX.setVol(); persist(); });
+$('#vol').addEventListener('change', () => SFX.play('coin'));
+$('#map').addEventListener('click', e => {
+  const b = e.target.closest('[data-loc]'); if (!b) return;
+  save.sel = +b.dataset.loc; dirty.map = true; dirty.all = true; persist();
+});
+$('#equip').addEventListener('click', e => {
+  const b = e.target.closest('button'); if (!b || b.disabled) return;
+  if (b.dataset.eq) equip(b.dataset.eq, b.dataset.slot);
+  else if (b.dataset.un) { save[b.dataset.un] = null; dirty.equip = true; }
+  else if (b.dataset.up) {
+    const id = b.dataset.up, c = upCost(save.items[id]);
+    if (save.shards >= c) { save.shards -= c; save.items[id]++; SFX.play('craft'); log(`${ITEMS[id].name} улучшен до ур.${save.items[id]}.`, 'loot'); }
+    dirty.equip = true;
+  } else if (b.dataset.buy) {
+    if (save.shards >= POT_COST && save.potions < POT_MAX) { save.shards -= POT_COST; save.potions++; SFX.play('coin'); }
+    dirty.equip = true;
+  }
+  persist();
+});
+$('#rules').addEventListener('change', e => {
+  const row = e.target.closest('.rule'), f = e.target.dataset.f; if (!row || !f) return;
+  const r = save.rules[+row.dataset.i];
+  r[f] = f === 'val' ? Math.max(0, Math.min(100, +e.target.value || 0)) : e.target.value;
+  if (f === 'cond' || f === 'act') dirty.rules = true;
+  if (f === 'act' && !save.items[r.item]) r.item = save.main || Object.keys(save.items)[0];
+  persist();
+});
+$('#rules').addEventListener('click', e => {
+  const b = e.target.closest('[data-r]'); if (!b) return;
+  const i = +b.closest('.rule').dataset.i;
+  if (b.dataset.r === 'del') save.rules.splice(i, 1);
+  else if (i > 0) [save.rules[i - 1], save.rules[i]] = [save.rules[i], save.rules[i - 1]];
+  dirty.rules = true; persist();
+});
+$('#craft').addEventListener('click', e => {
+  const b = e.target.closest('[data-craft]'); if (b && !b.disabled) craft(+b.dataset.craft);
+});
+$('#addRule').addEventListener('click', () => {
+  save.rules.push({ cond: 'foes_ge', val: 3, act: 'equip', item: save.main || 'sword' });
+  dirty.rules = true; persist();
+});
+
+function refreshPanels() {
+  if (dirty.all) { dirty.map = dirty.equip = dirty.rules = dirty.log = dirty.craft = true; renderControls(); dirty.all = false; }
+  if (dirty.map) { renderMap(); dirty.map = false; }
+  if (dirty.equip) { renderEquip(); dirty.equip = false; }
+  if (dirty.craft) { renderCraft(); dirty.craft = false; }
+  if (dirty.rules) { renderRules(); dirty.rules = false; }
+  if (dirty.log) { renderLog(); dirty.log = false; }
+}
+
+// ---------- Цикл ----------
+let last = 0, saveT = 0, equipT = 0;
+function frame(ts) {
+  const dt = Math.min(.05, (ts - last) / 1000 || 0); last = ts;
+  for (let i = 0; i < save.speed; i++) step(dt);
+  saveT += dt; equipT += dt;
+  if (saveT > 3) { saveT = 0; persist(); }
+  if (equipT > .5) { equipT = 0; dirty.equip = dirty.craft = true; }   // кнопки улучшений и крафта зависят от запасов
+  render(); hud(); refreshPanels();
+  guardClosing(!!(run && !run.over));
+  requestAnimationFrame(frame);
+}
+
+function start() {
+  setupTelegram();
+  SCREEN = getComputedStyle(document.documentElement).getPropertyValue('--screen').trim() || SCREEN;
+  if (!save.log.length) {
+    const who = tg && tg.initDataUnsafe && tg.initDataUnsafe.user ? tg.initDataUnsafe.user.first_name : '';
+    log(`${who ? who + ', г' : 'Г'}ерой разбил лагерь у края тропы. Выберите землю и нажмите «В путь».`, 'hero');
+  }
+  dirty.all = true;
+  sizeCanvas();
+  window.addEventListener('resize', sizeCanvas);
+  if (tg) tg.onEvent('viewportChanged', sizeCanvas);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(sizeCanvas);
+  // сохраняем, когда игру сворачивают или закрывают
+  document.addEventListener('visibilitychange', () => { if (document.hidden) persist(true); });
+  requestAnimationFrame(frame);
+}
+load(start);
+})();
+</script>
+</body>
+</html>

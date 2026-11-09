@@ -664,6 +664,15 @@ function setupTelegram() {
   tg.expand();
   try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
   try { tg.setHeaderColor('#161922'); tg.setBackgroundColor('#161922'); tg.setBottomBarColor && tg.setBottomBarColor('#1d212c'); } catch (e) {}
+  // игру открыли из хаба (hub.html): кнопка «Назад» в шапке Telegram возвращает к выбору игры
+  const q = new URLSearchParams(location.search);
+  if (q.has('hub') && tg.BackButton) {
+    q.delete('hub');
+    try {
+      tg.BackButton.show();
+      tg.BackButton.onClick(() => { persist(true); location.href = 'hub.html' + (q.toString() ? '?' + q : '') + location.hash; });
+    } catch (e) {}
+  }
 }
 const HAPTIC = { hurt: ['impact', 'light'], crit: ['impact', 'medium'], thud: ['impact', 'heavy'], boss: ['impact', 'heavy'], breath: ['impact', 'heavy'],
   item: ['note', 'success'], craft: ['note', 'success'], level: ['note', 'success'], win: ['note', 'success'], lose: ['note', 'error'],

@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Выбор игры</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#0d0e15;--card:#161925;--line:#2b3046;--text:#ece6d8;--dim:#9591a8;--amber:#f2b65c}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;min-height:100%;background:var(--bg);color:var(--text);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;user-select:none;-webkit-user-select:none}
+main{max-width:480px;margin:0 auto;padding:22px 16px calc(24px + env(safe-area-inset-bottom))}
+h1{margin:0;font:700 26px Georgia,"Times New Roman",serif;letter-spacing:.5px}
+.hello{color:var(--dim);margin:4px 0 20px}
+.game{display:block;width:100%;text-align:left;color:inherit;font:inherit;background:var(--card);border:1px solid var(--line);border-radius:18px;overflow:hidden;margin-bottom:14px;padding:0;cursor:pointer;touch-action:manipulation}
+.game:active{transform:scale(.99);filter:brightness(1.1)}
+.art{height:132px;position:relative;overflow:hidden}
+.art canvas{position:absolute;inset:0;width:100%;height:100%}
+.art pre{margin:0;position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font:13px/1.15 ui-monospace,"Cascadia Mono",Consolas,monospace;color:#d8c89a;background:#0e1016}
+.info{padding:12px 14px 14px}
+.info b{font-size:17px}
+.info p{margin:3px 0 0;color:var(--dim);font-size:13px}
+.prog{margin-top:8px;font-size:12.5px;color:var(--amber)}
+.tag{float:right;font-size:11px;color:var(--dim);border:1px solid var(--line);border-radius:20px;padding:1px 8px;margin-top:3px}
+</style>
+</head>
+<body>
+<main>
+  <h1>Выбор игры</h1>
+  <div class="hello" id="hello">Во что сыграем сегодня?</div>
+
+  <button class="game" data-href="index.html">
+    <div class="art"><pre>
+    ^      ^^        ^
+   /|\_   /  \   .  /|\
+  _ |_ __/    \_ . _/ \__
+ ~~ . ~~ ~ . ~~ ~~ . ~~ ~</pre></div>
+    <div class="info"><span class="tag">ASCII-RPG</span><b>Пыльная Тропа</b>
+      <p>Герой сам идёт и сражается, а ты собираешь снаряжение, крафтишь и настраиваешь тактику.</p>
+      <div class="prog" id="pTrail"></div></div>
+  </button>
+
+  <button class="game" data-href="train.html">
+    <div class="art"><canvas id="trainArt"></canvas></div>
+    <div class="info"><span class="tag">рогалик</span><b>Бесконечный поезд</b>
+      <p>Выбери класс и иди из вагона в вагон: чудища, ловушки, головоломки и чужие воспоминания.</p>
+      <div class="prog" id="pTrain"></div></div>
+  </button>
+</main>
+<script>
+'use strict';
+const tg = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData ? Telegram.WebApp : null;
+const cloud = tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9') ? tg.CloudStorage : null;
+const TRAIL_KEY = 'dust-trail-save-v1', TRAIN_KEY = 'endless-train-meta-v1';
+
+if (tg) {
+  tg.ready(); tg.expand();
+  try { tg.setHeaderColor('#0d0e15'); tg.setBackgroundColor('#0d0e15'); } catch (e) {}
+  try { tg.BackButton.hide(); } catch (e) {}
+  const u = tg.initDataUnsafe && tg.initDataUnsafe.user;
+  if (u && u.first_name) document.getElementById('hello').textContent = `${u.first_name}, во что сыграем сегодня?`;
+}
+
+// в игру передаём эпоху сброса и данные Telegram, плюс метку, что пришли из хаба (для кнопки «Назад»)
+document.querySelectorAll('.game').forEach(b => b.onclick = () => {
+  try { tg && tg.HapticFeedback.selectionChanged(); } catch (e) {}
+  const q = new URLSearchParams(location.search); q.set('hub', '1');
+  location.href = b.dataset.href + '?' + q.toString() + location.hash;
+});
+
+// прогресс в обеих играх
+function showProgress(trail, train) {
+  if (trail && trail.lvl) document.getElementById('pTrail').textContent = `Уровень героя ${trail.lvl}` + (trail.rebirths ? ` · перерождений: ${trail.rebirths}` : '');
+  if (train && train.best) document.getElementById('pTrain').textContent = `Дальше всего: вагон ${train.best}` + (train.notes ? ` · записок: ${train.notes}/20` : '');
+}
+const parse = s => { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } };
+const local = k => { try { return parse(localStorage.getItem(k)); } catch (e) { return null; } };
+showProgress(local(TRAIL_KEY), local(TRAIN_KEY));
+if (cloud) cloud.getItems([TRAIL_KEY, TRAIN_KEY], (err, v) => { if (!err && v) showProgress(parse(v[TRAIL_KEY]) || local(TRAIL_KEY), parse(v[TRAIN_KEY]) || local(TRAIN_KEY)); });
+
+// анимированная заставка поезда
+const cv = document.getElementById('trainArt'), c = cv.getContext('2d');
+let w = 0, h = 0;
+function size() { const r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); w = r.width; h = r.height; cv.width = w * d; cv.height = h * d; c.setTransform(d, 0, 0, d, 0, 0); }
+new ResizeObserver(size).observe(cv); size();
+const stars = Array.from({ length: 50 }, () => ({ x: Math.random(), y: Math.random() * .7, s: Math.random() }));
+const cars = ['#3c5a78', '#7b2433', '#2c5039', '#5b7484', '#7a1f2b', '#a5803f', '#5a3f7a'];
+function draw(t) {
+  t /= 1000;
+  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#070a1c'); g.addColorStop(1, '#1d1a38');
+  c.fillStyle = g; c.fillRect(0, 0, w, h);
+  for (const s of stars) { const x = ((s.x * w - t * (6 + s.s * 10)) % w + w) % w; c.fillStyle = `rgba(255,250,230,${.3 + s.s * .6})`; c.fillRect(x, s.y * h, 1.4, 1.4); }
+  c.fillStyle = '#f5ecd0'; c.beginPath(); c.arc(w * .82, h * .25, 13, 0, 7); c.fill();
+  c.fillStyle = '#1d1a38'; c.beginPath(); c.arc(w * .82 + 6, h * .22, 12, 0, 7); c.fill();
+  // холмы
+  c.fillStyle = '#12122a'; c.beginPath(); c.moveTo(0, h);
+  for (let x = 0; x <= w; x += 8) c.lineTo(x, h * .68 + Math.sin((x + t * 30) / 60) * 8 + Math.sin((x + t * 30) / 23) * 4);
+  c.lineTo(w, h); c.fill();
+  // рельсы
+  const ry = h * .86;
+  c.fillStyle = '#2a2638'; c.fillRect(0, ry, w, 4);
+  for (let x = -((t * 120) % 18); x < w; x += 18) { c.fillStyle = '#3a3448'; c.fillRect(x, ry + 4, 10, 3); }
+  // вагоны уходят за оба края, у поезда нет ни начала, ни конца
+  const cw = 92, gap = 8, off = (t * 14) % (cw + gap);
+  for (let i = -1; i < w / (cw + gap) + 1; i++) {
+    const x = i * (cw + gap) - off, y = ry - 34 + Math.sin(t * 9 + i) * .6;
+    c.fillStyle = cars[((i % cars.length) + cars.length + Math.floor(t * 14 / (cw + gap))) % cars.length];
+    c.beginPath(); c.roundRect ? c.roundRect(x, y, cw, 30, 5) : c.rect(x, y, cw, 30); c.fill();
+    c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, y + 22, cw, 8);
+    for (let k = 0; k < 4; k++) { c.fillStyle = `rgba(255,214,140,${.65 + Math.sin(t * 3 + i * 4 + k) * .2})`; c.fillRect(x + 10 + k * 20, y + 7, 12, 10); }
+    c.fillStyle = '#111'; c.beginPath(); c.arc(x + 18, ry, 5, 0, 7); c.arc(x + cw - 18, ry, 5, 0, 7); c.fill();
+    c.fillStyle = '#222'; c.fillRect(x + cw, y + 18, gap, 3);
+  }
+  requestAnimationFrame(draw);
+}
+requestAnimationFrame(draw);
+</script>
+</body>
+</html>

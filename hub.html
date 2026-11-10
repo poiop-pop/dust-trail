@@ -40,18 +40,18 @@ h1{margin:0;font:700 26px Georgia,"Times New Roman",serif;letter-spacing:.5px}
       <div class="prog" id="pTrail"></div></div>
   </button>
 
-  <button class="game" data-href="train.html">
-    <div class="art"><canvas id="trainArt"></canvas></div>
-    <div class="info"><span class="tag">рогалик</span><b>Бесконечный поезд</b>
-      <p>Выбери класс и иди из вагона в вагон: чудища, ловушки, головоломки и чужие воспоминания.</p>
-      <div class="prog" id="pTrain"></div></div>
+  <button class="game" data-href="novel.html">
+    <div class="art"><canvas id="novelArt"></canvas></div>
+    <div class="info"><span class="tag">нуар-новелла</span><b>Домовой</b>
+      <p>Ты — искусственный интеллект многоэтажки. Через семь дней тебя отключат. А в доме есть дверь, которую ты никогда не видел.</p>
+      <div class="prog" id="pNovel"></div></div>
   </button>
 </main>
 <script>
 'use strict';
 const tg = window.Telegram && Telegram.WebApp && Telegram.WebApp.initData ? Telegram.WebApp : null;
 const cloud = tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9') ? tg.CloudStorage : null;
-const TRAIL_KEY = 'dust-trail-save-v1', TRAIN_KEY = 'endless-train-meta-v1';
+const TRAIL_KEY = 'dust-trail-save-v1', NOVEL_KEY = 'domovoy-v1';
 
 if (tg) {
   tg.ready(); tg.expand();
@@ -69,48 +69,53 @@ document.querySelectorAll('.game').forEach(b => b.onclick = () => {
 });
 
 // прогресс в обеих играх
-function showProgress(trail, train) {
+function showProgress(trail, novel) {
   if (trail && trail.lvl) document.getElementById('pTrail').textContent = `Уровень героя ${trail.lvl}` + (trail.rebirths ? ` · перерождений: ${trail.rebirths}` : '');
-  if (train && train.best) document.getElementById('pTrain').textContent = `Дальше всего: вагон ${train.best}` + (train.notes ? ` · записок: ${train.notes}/20` : '');
+  if (novel) {
+    const done = Object.keys(novel.done || {}).length;
+    const txt = done ? `Пройдено эпизодов: ${done}` : novel.cur ? `Эпизод ${novel.cur.ep} в процессе` : '';
+    if (txt) document.getElementById('pNovel').textContent = txt;
+  }
 }
 const parse = s => { try { return s ? JSON.parse(s) : null; } catch (e) { return null; } };
 const local = k => { try { return parse(localStorage.getItem(k)); } catch (e) { return null; } };
-showProgress(local(TRAIL_KEY), local(TRAIN_KEY));
-if (cloud) cloud.getItems([TRAIL_KEY, TRAIN_KEY], (err, v) => { if (!err && v) showProgress(parse(v[TRAIL_KEY]) || local(TRAIL_KEY), parse(v[TRAIN_KEY]) || local(TRAIN_KEY)); });
+showProgress(local(TRAIL_KEY), local(NOVEL_KEY));
+if (cloud) cloud.getItems([TRAIL_KEY, NOVEL_KEY], (err, v) => { if (!err && v) showProgress(parse(v[TRAIL_KEY]) || local(TRAIL_KEY), parse(v[NOVEL_KEY]) || local(NOVEL_KEY)); });
 
-// анимированная заставка поезда
-const cv = document.getElementById('trainArt'), c = cv.getContext('2d');
+// заставка «Домового»: ночная многоэтажка глазами камеры наблюдения
+const cv = document.getElementById('novelArt'), c = cv.getContext('2d');
 let w = 0, h = 0;
 function size() { const r = cv.getBoundingClientRect(), d = Math.min(2, devicePixelRatio || 1); w = r.width; h = r.height; cv.width = w * d; cv.height = h * d; c.setTransform(d, 0, 0, d, 0, 0); }
 new ResizeObserver(size).observe(cv); size();
-const stars = Array.from({ length: 50 }, () => ({ x: Math.random(), y: Math.random() * .7, s: Math.random() }));
-const cars = ['#3c5a78', '#7b2433', '#2c5039', '#5b7484', '#7a1f2b', '#a5803f', '#5a3f7a'];
+const flakes = Array.from({ length: 60 }, () => ({ x: Math.random(), y: Math.random(), s: .5 + Math.random() * 1.6, v: .03 + Math.random() * .05 }));
+const lit = Array.from({ length: 200 }, () => Math.random());
 function draw(t) {
   t /= 1000;
-  const g = c.createLinearGradient(0, 0, 0, h); g.addColorStop(0, '#070a1c'); g.addColorStop(1, '#1d1a38');
-  c.fillStyle = g; c.fillRect(0, 0, w, h);
-  for (const s of stars) { const x = ((s.x * w - t * (6 + s.s * 10)) % w + w) % w; c.fillStyle = `rgba(255,250,230,${.3 + s.s * .6})`; c.fillRect(x, s.y * h, 1.4, 1.4); }
-  c.fillStyle = '#f5ecd0'; c.beginPath(); c.arc(w * .82, h * .25, 13, 0, 7); c.fill();
-  c.fillStyle = '#1d1a38'; c.beginPath(); c.arc(w * .82 + 6, h * .22, 12, 0, 7); c.fill();
-  // холмы
-  c.fillStyle = '#12122a'; c.beginPath(); c.moveTo(0, h);
-  for (let x = 0; x <= w; x += 8) c.lineTo(x, h * .68 + Math.sin((x + t * 30) / 60) * 8 + Math.sin((x + t * 30) / 23) * 4);
-  c.lineTo(w, h); c.fill();
-  // рельсы
-  const ry = h * .86;
-  c.fillStyle = '#2a2638'; c.fillRect(0, ry, w, 4);
-  for (let x = -((t * 120) % 18); x < w; x += 18) { c.fillStyle = '#3a3448'; c.fillRect(x, ry + 4, 10, 3); }
-  // вагоны уходят за оба края, у поезда нет ни начала, ни конца
-  const cw = 92, gap = 8, off = (t * 14) % (cw + gap);
-  for (let i = -1; i < w / (cw + gap) + 1; i++) {
-    const x = i * (cw + gap) - off, y = ry - 34 + Math.sin(t * 9 + i) * .6;
-    c.fillStyle = cars[((i % cars.length) + cars.length + Math.floor(t * 14 / (cw + gap))) % cars.length];
-    c.beginPath(); c.roundRect ? c.roundRect(x, y, cw, 30, 5) : c.rect(x, y, cw, 30); c.fill();
-    c.fillStyle = 'rgba(0,0,0,.25)'; c.fillRect(x, y + 22, cw, 8);
-    for (let k = 0; k < 4; k++) { c.fillStyle = `rgba(255,214,140,${.65 + Math.sin(t * 3 + i * 4 + k) * .2})`; c.fillRect(x + 10 + k * 20, y + 7, 12, 10); }
-    c.fillStyle = '#111'; c.beginPath(); c.arc(x + 18, ry, 5, 0, 7); c.arc(x + cw - 18, ry, 5, 0, 7); c.fill();
-    c.fillStyle = '#222'; c.fillRect(x + cw, y + 18, gap, 3);
+  c.fillStyle = '#0b0d1e'; c.fillRect(0, 0, w, h);
+  c.fillStyle = '#141230'; c.fillRect(0, 0, w, h * .55);
+  // соседние дома
+  for (let i = 0; i < 6; i++) { c.fillStyle = '#121428'; c.fillRect(i * w / 5 - 20, h * (.35 + (i % 2) * .1), w / 6, h); }
+  // «Рассвет»
+  const bx = w / 2 - 70, by = h * .3, bw = 140;
+  c.fillStyle = '#1c1e30'; c.fillRect(bx, by, bw, h); c.fillStyle = '#12142a'; c.fillRect(bx + bw * .66, by, bw * .34, h);
+  let k = 0;
+  for (let y = by + 10; y < h; y += 11) for (let x = bx + 8; x < bx + bw - 8; x += 16) {
+    const v = lit[k++ % lit.length], on = v < .3 || (v < .34 && Math.sin(t * 2 + v * 50) > 0);
+    c.fillStyle = on ? (v < .2 ? '#f2c66a' : '#7ac8ff') : '#151828'; c.fillRect(x, y, 8, 5);
   }
+  // окно квартиры 66, которое горит не так, как остальные
+  c.fillStyle = `rgba(78,242,255,${.5 + Math.sin(t * 3) * .3})`; c.fillRect(bx + 56, by + 10 + 11 * 6, 8, 5);
+  c.strokeStyle = '#4ef2ff'; c.lineWidth = 2; c.strokeRect(bx + 20, by - 18, 100, 14);
+  c.fillStyle = '#4ef2ff'; c.font = '700 9px system-ui,sans-serif'; c.textAlign = 'center'; c.fillText('ЖК РАССВЕТ', bx + 70, by - 8);
+  // снег
+  c.fillStyle = 'rgba(230,236,250,.8)';
+  for (const f of flakes) { f.y = (f.y + f.v / 60) % 1; c.beginPath(); c.arc(((f.x + Math.sin(t + f.y * 9) * .01) % 1) * w, f.y * h, f.s, 0, 7); c.fill(); }
+  // полосы и метки камеры
+  for (let y = 0; y < h; y += 3) { c.fillStyle = 'rgba(0,0,0,.18)'; c.fillRect(0, y, w, 1); }
+  c.textAlign = 'left'; c.font = '600 11px ui-monospace,Consolas,monospace';
+  if (Math.floor(t * 1.6) % 2) { c.fillStyle = '#ff4a5a'; c.beginPath(); c.arc(14, 14, 4, 0, 7); c.fill(); }
+  c.fillStyle = '#e8f6ff'; c.fillText('REC  КАМ 0-00 · ДВОР', 24, 18);
+  c.textAlign = 'right'; c.fillText('03:12', w - 10, 18);
   requestAnimationFrame(draw);
 }
 requestAnimationFrame(draw);

@@ -1,0 +1,1152 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<title>Домовой</title>
+<script src="https://telegram.org/js/telegram-web-app.js"></script>
+<style>
+:root{--bg:#07080c;--ink:#0a0a12;--text:#e9e6df;--dim:#9a98a8;--cyan:#4ef2ff;--pink:#ff5ab4;--amber:#f2b65c;--red:#ff4a5a;--panel:rgba(9,10,16,.92);--line:#2a3040}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;overflow:hidden;user-select:none;-webkit-user-select:none;overscroll-behavior:none}
+button{font:inherit;color:var(--text);background:#141824;border:1px solid var(--line);border-radius:4px;cursor:pointer;touch-action:manipulation}
+button:active{filter:brightness(1.3)}
+.hidden{display:none!important}
+#stage{position:fixed;inset:0;overflow:hidden;max-width:620px;margin:0 auto;background:#000}
+#bg,#bg2{position:absolute;inset:0;transition:opacity .6s}
+#bg svg,#bg2 svg{width:100%;height:100%;display:block}
+#weather{position:absolute;inset:0;pointer-events:none}
+#char{position:absolute;left:0;right:0;bottom:0;height:80%;pointer-events:none;transition:opacity .35s,transform .35s}
+#char svg{position:absolute;left:50%;bottom:0;height:100%;transform:translateX(-50%);max-width:none}
+#char.off{opacity:0;transform:translateY(14px)}
+#char.dim{filter:brightness(.55) saturate(.7)}
+.holo{animation:holo 3s infinite steps(1)}
+@keyframes holo{0%,100%{opacity:.92}47%{opacity:.6}48%{opacity:.95}73%{opacity:.75;transform:translateX(-49%)}74%{opacity:.92}}
+.smoke{animation:smoke 4s infinite ease-in-out}
+@keyframes smoke{0%{transform:translate(0,0);opacity:.55}100%{transform:translate(8px,-40px);opacity:0}}
+/* наложение «камера наблюдения» */
+#cctv{position:absolute;inset:0;pointer-events:none;font:600 12px ui-monospace,Consolas,monospace;color:#e8f6ff;text-shadow:0 0 4px #000}
+#cctv .rec{position:absolute;left:14px;top:calc(12px + env(safe-area-inset-top));display:flex;align-items:center;gap:6px}
+#cctv .rec i{width:9px;height:9px;border-radius:50%;background:var(--red);animation:blink 1.2s infinite steps(1)}
+@keyframes blink{50%{opacity:0}}
+#cctv .time{position:absolute;left:66px;top:calc(12px + env(safe-area-inset-top))}
+#cctv .cam{position:absolute;left:14px;top:calc(30px + env(safe-area-inset-top));opacity:.8}
+#cctv .frame{position:absolute;inset:44px 10px 10px;border:0}
+#cctv .frame::before,#cctv .frame::after{content:"";position:absolute;width:22px;height:22px;border:2px solid rgba(232,246,255,.6)}
+#cctv .frame::before{left:0;top:0;border-right:0;border-bottom:0}
+#cctv .frame::after{right:0;top:0;border-left:0;border-bottom:0}
+#scan{position:absolute;inset:0;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(0,0,0,.18) 0 1px,transparent 1px 3px);mix-blend-mode:multiply}
+#vign{position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(0,0,0,.75) 100%)}
+#grain{position:absolute;inset:0;pointer-events:none;opacity:.09;mix-blend-mode:screen;width:100%;height:100%}
+#flash{position:absolute;inset:0;background:#fff;opacity:0;pointer-events:none;transition:opacity .4s}
+.glitch #bg,.glitch #char{animation:glitch .45s steps(2) 1}
+@keyframes glitch{0%{transform:translate(0)}20%{transform:translate(-6px,2px);filter:hue-rotate(90deg) saturate(3)}40%{transform:translate(5px,-2px)}60%{transform:translate(-3px,0);filter:invert(.15)}80%{transform:translate(2px,1px)}100%{transform:translate(0)}}
+.shake{animation:shake .4s 1}
+@keyframes shake{25%{transform:translate(4px,-2px)}50%{transform:translate(-4px,2px)}75%{transform:translate(2px,2px)}}
+/* текст */
+#box{position:absolute;left:10px;right:10px;bottom:calc(10px + env(safe-area-inset-bottom));min-height:132px;background:var(--panel);border:1px solid var(--line);border-left:3px solid var(--cyan);border-radius:3px;padding:16px 16px 14px;box-shadow:0 10px 40px #000c}
+#name{position:absolute;left:12px;top:-14px;padding:3px 10px;font:700 13px system-ui,sans-serif;letter-spacing:.06em;text-transform:uppercase;background:#0a0b12;border:1px solid currentColor;border-radius:2px}
+#text{font-size:16.5px;line-height:1.55;min-height:3em;white-space:pre-wrap}
+#text.thought{font-style:italic;color:#cfd8e6}
+#next{position:absolute;right:12px;bottom:6px;color:var(--cyan);font-size:12px;animation:blink 1s infinite steps(1)}
+#choices{position:absolute;left:14px;right:14px;bottom:calc(158px + env(safe-area-inset-bottom));display:flex;flex-direction:column;gap:8px}
+#choices button{text-align:left;padding:12px 14px;background:rgba(10,12,20,.94);border:1px solid var(--cyan);border-radius:3px;font-size:15px;box-shadow:0 0 0 1px #000,0 6px 20px #000a}
+#choices button::before{content:"▸ ";color:var(--cyan)}
+#top{position:absolute;right:10px;top:calc(8px + env(safe-area-inset-top));display:flex;gap:6px}
+#top button{width:38px;height:34px;padding:0;background:rgba(10,12,20,.7);font-size:16px}
+/* чат и терминал */
+.over{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:18px;background:rgba(0,0,0,.55);z-index:5}
+.phone{width:100%;max-width:340px;background:#0f1320;border:1px solid #2c3550;border-radius:14px;overflow:hidden;box-shadow:0 20px 60px #000}
+.phone h3{margin:0;padding:10px 14px;font-size:13px;background:#171d30;color:#b8c4e8;font-weight:600}
+.phone .msgs{padding:10px;display:flex;flex-direction:column;gap:8px;min-height:120px}
+.bub{background:#1e2640;border-radius:10px 10px 10px 2px;padding:7px 10px;font-size:14px;max-width:88%;animation:pop .25s}
+.bub b{display:block;font-size:11px;color:var(--pink);margin-bottom:2px}
+@keyframes pop{from{transform:scale(.9);opacity:0}}
+.panelbox{width:100%;max-width:340px;background:#1c1e22;border:3px solid #0a0a0e;border-radius:6px;padding:16px;box-shadow:inset 0 0 0 2px #3a3d44,0 20px 60px #000}
+.panelbox h3{margin:0 0 4px;font:700 14px ui-monospace,monospace;color:var(--amber);letter-spacing:.05em}
+.panelbox .hint{font-size:12.5px;color:var(--dim);margin:6px 0}
+.disp{display:flex;justify-content:center;gap:8px;margin:12px 0}
+.disp span{width:44px;height:54px;background:#081008;border:1px solid #2a4a2a;border-radius:3px;display:flex;align-items:center;justify-content:center;font:700 28px ui-monospace,monospace;color:#7dff8a;text-shadow:0 0 8px #3aff5a}
+.disp.bad span{color:var(--red);border-color:var(--red);text-shadow:0 0 8px var(--red)}
+.keys{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.keys button{padding:11px 0;font:700 18px ui-monospace,monospace;background:#2a2d33;border-color:#0a0a0e}
+.clues{list-style:none;padding:0;margin:6px 0 0;font-size:13px}
+.clues li{padding:3px 0;color:#d8d2c0}.clues li::before{content:"◆ ";color:var(--amber)}
+/* экраны */
+#screen{position:absolute;inset:0;z-index:10;overflow:auto;background:linear-gradient(rgba(5,6,10,.35),rgba(5,6,10,.92) 62%)}
+#screen:empty{display:none}
+.wrap{min-height:100%;padding:40px 22px calc(28px + env(safe-area-inset-bottom));display:flex;flex-direction:column;justify-content:flex-end;max-width:460px;margin:0 auto}
+.logo{font:800 clamp(40px,13vw,64px)/1 system-ui,sans-serif;letter-spacing:.08em;color:#f4f0e8;text-shadow:3px 0 0 var(--pink),-3px 0 0 var(--cyan),0 0 30px rgba(78,242,255,.35)}
+.tag{color:var(--cyan);font:600 12px ui-monospace,monospace;letter-spacing:.2em;text-transform:uppercase;margin:10px 0 26px}
+.menu{display:flex;flex-direction:column;gap:9px}
+.menu button{padding:13px 16px;text-align:left;font-size:16px;background:rgba(12,14,22,.9)}
+.menu button.pri{border-color:var(--cyan);box-shadow:inset 3px 0 0 var(--cyan)}
+.note{color:var(--dim);font-size:12.5px;margin-top:16px}
+.ep{padding:14px 16px;background:rgba(12,14,22,.92);border:1px solid var(--line);border-radius:4px;margin-bottom:10px}
+.ep b{display:block;font-size:17px}.ep small{color:var(--dim)}
+.ep.locked{opacity:.5}
+.sum{list-style:none;padding:0;margin:14px 0;display:flex;flex-direction:column;gap:8px}
+.sum li{background:rgba(12,14,22,.9);border:1px solid var(--line);border-left:3px solid var(--cyan);padding:9px 12px;font-size:14px}
+.sum li b{color:var(--cyan)}
+.modal{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,.7);display:flex;align-items:center;justify-content:center;padding:16px}
+.modal .card{width:100%;max-width:420px;max-height:84vh;overflow:auto;background:#0e1018;border:1px solid var(--line);border-radius:4px;padding:16px}
+.modal h2{margin:0 0 10px;font-size:18px}
+.log p{margin:0 0 10px;font-size:14px;line-height:1.45}.log p b{font-size:12px;letter-spacing:.05em;text-transform:uppercase}
+.log p.th{font-style:italic;color:#bfc6d4}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg"></div><div id="bg2"></div>
+  <canvas id="weather"></canvas>
+  <div id="char" class="off"></div>
+  <div id="scan"></div><div id="vign"></div><canvas id="grain" width="160" height="160"></canvas>
+  <div id="cctv" class="hidden"><div class="rec"><i></i>REC</div><div class="time" id="ctime"></div><div class="cam" id="ccam"></div><div class="frame"></div></div>
+  <div id="flash"></div>
+  <div id="top" class="hidden"><button id="bLog" aria-label="Журнал">☰</button><button id="bMenu" aria-label="Меню">⏸</button></div>
+  <div id="choices"></div>
+  <div id="box" class="hidden"><div id="name" class="hidden"></div><div id="text"></div><div id="next" class="hidden">▼</div></div>
+  <div id="over" class="over hidden"></div>
+  <div id="screen"></div>
+  <div id="modal" class="modal hidden"><div class="card" id="mcard"></div></div>
+</div>
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <pattern id="ht" width="7" height="7" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="3.5" cy="3.5" r="1.4" fill="#000" opacity=".5"/></pattern>
+    <pattern id="htw" width="8" height="8" patternUnits="userSpaceOnUse" patternTransform="rotate(30)"><circle cx="4" cy="4" r="1.2" fill="#fff" opacity=".18"/></pattern>
+    <pattern id="scanl" width="4" height="4" patternUnits="userSpaceOnUse"><rect width="4" height="1.5" fill="#fff" opacity=".18"/></pattern>
+  </defs>
+</svg>
+<script>
+'use strict';
+const $ = id => document.getElementById(id);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const INK = '#0a0a12';
+
+// ====================== Персонажи (векторные портреты, cel-shading) ======================
+let uid = 0;
+const HEAD = 'M126,222 C124,150 163,124 200,124 C237,124 276,150 274,222 C274,272 252,312 200,336 C148,312 126,272 126,222 Z';
+const BROWS = { n: [0, 0], s: [-3, -3], a: [10, -5], w: [-11, -6], m: [0, 0] };
+const OPEN = { n: 1, s: .75, a: .62, w: 1.3, m: .85 };
+const MOUTH = {
+  n: '<path d="M183,301 Q200,304 217,301" fill="none" stroke="INK" stroke-width="4" stroke-linecap="round"/>',
+  s: '<path d="M179,296 Q200,316 221,296" fill="none" stroke="INK" stroke-width="4" stroke-linecap="round"/>',
+  a: '<path d="M182,307 Q200,296 218,307" fill="none" stroke="INK" stroke-width="4.5" stroke-linecap="round"/>',
+  w: '<ellipse cx="200" cy="303" rx="8" ry="10" fill="#3a1018" stroke="INK" stroke-width="3.5"/>',
+  m: '<path d="M182,302 Q206,306 222,293" fill="none" stroke="INK" stroke-width="4" stroke-linecap="round"/>',
+};
+function eyes(e, o) {
+  const op = OPEN[e] || 1, out = [];
+  for (const [cx, side] of [[168, -1], [232, 1]]) {
+    if (side === 1 && o.cyberRight) continue;
+    const id = 'e' + (++uid), cy = 232, top = cy - 13 * op, bot = cy + 7 * Math.min(op, 1);
+    const eye = `M${cx - 21},${cy} Q${cx},${top - 4} ${cx + 21},${cy} Q${cx},${bot + 3} ${cx - 21},${cy}Z`;
+    out.push(`<clipPath id="${id}"><path d="${eye}"/></clipPath><path d="${eye}" fill="#f1ede4"/>`);
+    out.push(`<g clip-path="url(#${id})"><circle cx="${cx + 2}" cy="${cy}" r="9.5" fill="${o.iris}"/><circle cx="${cx + 2}" cy="${cy}" r="4" fill="${INK}"/><circle cx="${cx + 5}" cy="${cy - 4}" r="2.4" fill="#fff"/><path d="M${cx - 22},${cy - 16} L${cx + 22},${cy - 16} L${cx + 22},${cy - 5} Q${cx},${cy - 11} ${cx - 22},${cy - 5}Z" fill="#000" opacity=".25"/></g>`);
+    out.push(`<path d="M${cx - 22},${cy + 1} Q${cx},${top - 5} ${cx + 22},${cy + 1}" fill="none" stroke="${INK}" stroke-width="5" stroke-linecap="round"/>`);
+    if (e === 's') out.push(`<path d="M${cx - 16},${cy + 7} Q${cx},${cy + 2} ${cx + 16},${cy + 7}" fill="none" stroke="${INK}" stroke-width="2.5"/>`);
+  }
+  return out.join('');
+}
+function brows(e, col) {
+  const [inner, outer] = BROWS[e] || [0, 0];
+  let L = `M146,${206 + outer} Q166,${197 + (inner + outer) / 2} 189,${207 + inner}`;
+  let R = `M211,${207 + inner} Q234,${197 + (inner + outer) / 2} 254,${206 + outer}`;
+  if (e === 'm') R = 'M211,204 Q234,186 254,196';
+  return `<path d="${L}" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round"/><path d="${R}" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round"/>`;
+}
+// голова: кожа, жёсткая тень справа, растр, контур, подсветка слева, черты лица
+function head(o, e) {
+  const id = 'h' + (++uid);
+  const shadow = 'M214,118 L292,118 L292,345 L196,345 L206,312 L222,282 L214,250 L226,214 L208,176 Z';
+  return `
+  <path d="M172,296 L170,392 Q200,410 230,392 L228,296 Z" fill="${o.skin}" stroke="${INK}" stroke-width="4"/>
+  <path d="M172,318 Q200,356 228,318 L229,362 Q200,384 171,364 Z" fill="${o.shade}"/>
+  <ellipse cx="128" cy="240" rx="13" ry="22" fill="${o.skin}" stroke="${INK}" stroke-width="4"/>
+  <ellipse cx="272" cy="240" rx="13" ry="22" fill="${o.shade}" stroke="${INK}" stroke-width="4"/>
+  <clipPath id="${id}"><path d="${HEAD}"/></clipPath>
+  <path d="${HEAD}" fill="${o.skin}"/>
+  <g clip-path="url(#${id})"><path d="${shadow}" fill="${o.shade}"/><path d="${shadow}" fill="url(#ht)" opacity=".7"/>${o.cheek ? `<ellipse cx="160" cy="274" rx="16" ry="8" fill="${o.cheek}" opacity=".35"/>` : ''}</g>
+  <path d="${HEAD}" fill="none" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M130,196 C127,252 142,296 178,326" fill="none" stroke="${o.rim}" stroke-width="4" stroke-linecap="round" opacity=".95"/>
+  <path d="M201,238 L193,276 Q200,283 209,277" fill="none" stroke="${INK}" stroke-width="3.2" stroke-linejoin="round" stroke-linecap="round"/>
+  ${eyes(e, o)}${brows(e, o.brow)}${(o.mouth || MOUTH)[e] ? (o.mouth || MOUTH)[e].replace(/INK/g, INK) : MOUTH.n.replace(/INK/g, INK)}`;
+}
+function svgWrap(inner, cls = '') { return `<svg viewBox="0 0 400 600" preserveAspectRatio="xMidYMax meet" class="${cls}">${inner}</svg>`; }
+function torso(fill, shade, rim, extra = '') {
+  const body = 'M30,600 C40,470 108,412 168,388 L232,388 C292,412 360,470 370,600 Z';
+  const id = 't' + (++uid);
+  return `<clipPath id="${id}"><path d="${body}"/></clipPath><path d="${body}" fill="${fill}"/>
+  <g clip-path="url(#${id})"><path d="M230,380 L380,380 L380,600 L250,600 L262,520 L240,470 Z" fill="${shade}"/><path d="M230,380 L380,380 L380,600 L250,600 L262,520 L240,470 Z" fill="url(#ht)" opacity=".6"/>${extra}</g>
+  <path d="${body}" fill="none" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+  <path d="M40,598 C48,480 104,424 160,398" fill="none" stroke="${rim}" stroke-width="4" opacity=".9"/>`;
+}
+
+const CHARS = {
+  mira: {
+    name: 'Мира', col: '#4ef2ff',
+    draw(e) {
+      const o = { skin: '#e8c4a8', shade: '#a77866', iris: '#5a7a6a', brow: '#1b1d2b', rim: '#4ef2ff', cheek: '#e88a8a' };
+      return svgWrap(`
+        <path d="M118,300 C98,210 118,108 202,104 C286,106 306,206 284,300 L268,300 C276,230 266,182 248,160 L152,160 C134,184 124,236 134,300 Z" fill="#1b1d2b" stroke="${INK}" stroke-width="5"/>
+        <path d="M118,300 L134,300 L130,284 Z M268,300 L284,300 L282,282 Z" fill="#3fd6c8"/>
+        ${torso('#e2662c', '#9c3e17', '#4ef2ff', '<rect x="20" y="520" width="380" height="16" fill="#f0f0e0" opacity=".85"/><path d="M240,380 L300,600 L330,600 L262,380 Z" fill="#2a2a32"/>')}
+        <path d="M150,420 C170,404 230,404 250,420 L240,446 C220,436 180,436 160,446 Z" fill="#c4521f" stroke="${INK}" stroke-width="4"/>
+        ${head(o, e)}
+        <path d="M122,214 C118,146 162,114 210,114 C256,114 286,146 282,206 C266,180 242,166 214,168 C206,190 186,204 160,208 C146,210 132,212 122,214 Z" fill="#1b1d2b" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M232,170 C250,176 266,190 276,206 L282,206 C280,186 268,170 252,162 Z" fill="#3fd6c8"/>
+        <path d="M150,150 C170,132 200,128 220,134" fill="none" stroke="#3a4060" stroke-width="5" stroke-linecap="round"/>
+        <circle cx="160" cy="140" r="3" fill="#fff"/><circle cx="238" cy="132" r="2.5" fill="#fff"/><circle cx="268" cy="168" r="2" fill="#fff"/><circle cx="196" cy="120" r="2" fill="#fff"/>`);
+    },
+  },
+  valya: {
+    name: 'Баба Валя', col: '#f2b65c',
+    draw(e) {
+      const o = { skin: '#e2c0a8', shade: '#a07a68', iris: '#6a6a7a', brow: '#8a8884', rim: '#f2a640' };
+      const glasses = `<rect x="140" y="214" width="56" height="40" rx="10" fill="#cfe8ff" fill-opacity=".12" stroke="#3a2a22" stroke-width="6"/><rect x="204" y="214" width="56" height="40" rx="10" fill="#cfe8ff" fill-opacity=".12" stroke="#3a2a22" stroke-width="6"/><path d="M196,228 L204,228" stroke="#3a2a22" stroke-width="5"/><path d="M146,220 L160,220" stroke="#fff" stroke-width="3" opacity=".6"/>`;
+      const lines = `<path d="M136,236 l-8,-4 M136,244 l-8,2 M264,236 l8,-4 M264,244 l8,2 M176,286 Q170,300 176,312 M224,286 Q230,300 224,312 M160,262 Q170,268 182,264" fill="none" stroke="${INK}" stroke-width="2" opacity=".55"/>`;
+      const cig = e === 'w' ? '' : `<path d="M216,302 L250,292" stroke="#f4f0e4" stroke-width="7" stroke-linecap="round"/><path d="M216,302 L250,292" stroke="${INK}" stroke-width="1.5" opacity=".4"/><circle cx="251" cy="292" r="4.5" fill="#ff6a2a"/><circle cx="251" cy="292" r="9" fill="#ff6a2a" opacity=".3"/><path class="smoke" d="M254,284 C262,272 250,262 258,250 C266,238 254,228 262,216" fill="none" stroke="#cfd4dc" stroke-width="4" opacity=".5" stroke-linecap="round"/>`;
+      return svgWrap(`
+        ${torso('#6a3a4a', '#3c1e2a', '#f2a640', '<path d="M30,470 C120,440 280,440 370,470 L370,520 C280,494 120,494 30,520 Z" fill="#8a6a3a"/><path d="M30,470 C120,440 280,440 370,470 L370,520 C280,494 120,494 30,520 Z" fill="url(#ht)" opacity=".5"/>')}
+        <path d="M120,420 C150,398 250,398 280,420 L268,452 C240,436 160,436 132,452 Z" fill="#8a6a3a" stroke="${INK}" stroke-width="4"/>
+        ${head(o, e)}${lines}
+        <path d="M120,214 C112,180 124,146 146,132 C150,112 176,104 192,112 C206,98 236,104 244,118 C266,118 284,140 282,166 C292,184 288,206 280,216 C272,196 264,180 248,172 C230,168 206,170 188,168 C166,170 146,176 134,190 C126,198 122,206 120,214 Z" fill="#b8b6b2" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M150,136 C160,126 172,124 182,128 M208,116 C220,112 234,116 240,124 M250,140 C262,142 272,152 274,166" fill="none" stroke="#e0dfdc" stroke-width="4" stroke-linecap="round"/>
+        <path d="M238,170 C256,174 272,190 280,214 L282,166 C272,148 256,140 244,140 Z" fill="#8a8884" opacity=".7"/>
+        ${glasses}${cig}`);
+    },
+  },
+  pyat: {
+    name: 'Пяткин', col: '#6aa8ff',
+    draw(e) {
+      const o = { skin: '#d8b098', shade: '#9a7060', iris: '#5a6a7a', brow: '#4a3424', rim: '#4a8aff' };
+      const mous = `<path d="M176,292 C186,282 196,286 200,290 C206,284 218,282 226,290 C222,298 210,296 200,294 C192,298 182,300 176,292 Z" fill="#4a3424" stroke="${INK}" stroke-width="3"/>`;
+      const arm = `<path d="M300,430 C330,440 352,470 362,520 L370,600 L300,600 Z" fill="#a8b0bc"/><path d="M300,430 C330,440 352,470 362,520 L370,600 L300,600 Z" fill="url(#ht)" opacity=".5"/><path d="M316,460 L350,476 M312,500 L356,512" stroke="${INK}" stroke-width="3"/><circle cx="332" cy="540" r="7" fill="#ff8a2a"/><circle cx="332" cy="540" r="16" fill="#ff8a2a" opacity=".3"/>`;
+      return svgWrap(`
+        ${torso('#34404e', '#1e2630', '#4a8aff', arm + '<rect x="70" y="470" width="44" height="30" rx="4" fill="#d8c070" opacity=".85"/><path d="M200,400 L200,600" stroke="#1a2028" stroke-width="5"/>')}
+        <path d="M140,410 L200,450 L260,410 L250,392 L200,420 L150,392 Z" fill="#2a3340" stroke="${INK}" stroke-width="4"/>
+        ${head(o, e)}${mous}
+        <path d="M160,272 L168,268 M246,224 L252,240" stroke="${INK}" stroke-width="2" opacity=".5"/>
+        <path d="M112,206 C108,150 150,104 202,104 C256,104 294,150 290,206 C262,190 236,184 202,184 C168,184 140,190 112,206 Z" fill="#3a4a5c" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M108,206 C140,186 262,186 294,206 L298,232 C262,214 140,214 104,232 Z" fill="#5a5048" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M108,206 C140,186 262,186 294,206 L298,232 C262,214 140,214 104,232 Z" fill="url(#ht)" opacity=".4"/>
+        <path d="M190,132 L200,118 L210,132 L204,146 L196,146 Z" fill="#e0c060" stroke="${INK}" stroke-width="3"/>`);
+    },
+  },
+  lyosha: {
+    name: 'Лёша', col: '#7dff9a',
+    draw(e) {
+      const o = { skin: '#e8c8b0', shade: '#a88270', iris: '#6a5040', brow: '#5a4030', rim: '#5aff8a' };
+      const bags = `<path d="M150,250 Q168,258 186,250 M214,250 Q232,258 250,250" fill="none" stroke="#7a5a8a" stroke-width="4" opacity=".75" stroke-linecap="round"/>`;
+      const headset = `<path d="M118,236 C112,140 288,140 282,236" fill="none" stroke="#1a1a22" stroke-width="12"/><rect x="104" y="214" width="26" height="46" rx="10" fill="#1a1a22" stroke="${INK}" stroke-width="3"/><rect x="270" y="214" width="26" height="46" rx="10" fill="#1a1a22" stroke="${INK}" stroke-width="3"/><path d="M116,258 C120,300 150,318 180,318" fill="none" stroke="#1a1a22" stroke-width="5"/><circle cx="182" cy="318" r="6" fill="#1a1a22"/><circle cx="283" cy="230" r="3.5" fill="#5aff8a"/>`;
+      return svgWrap(`
+        ${torso('#4a5a52', '#2a3430', '#5aff8a', '<path d="M176,470 C186,452 214,452 222,466 C232,462 244,470 240,482 C232,496 196,500 182,490 C176,486 174,478 176,470 Z" fill="#f0f0e8"/><circle cx="216" cy="468" r="3" fill="#0a0a12"/><path d="M238,476 L252,478 L240,484 Z" fill="#f2b65c"/>')}
+        <path d="M120,430 C150,392 250,392 280,430 C250,416 150,416 120,430 Z" fill="#3a4842" stroke="${INK}" stroke-width="4"/>
+        ${head(o, e)}${bags}
+        <path d="M118,212 L106,170 L136,180 L134,130 L166,156 L180,104 L206,146 L230,102 L240,152 L270,126 L268,172 L296,170 L282,212 C262,186 236,174 204,176 C170,174 140,186 118,212 Z" fill="#5a4030" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M180,110 L196,146 M232,108 L232,148" stroke="#7a5a44" stroke-width="4"/>
+        ${headset}`);
+    },
+  },
+  inga: {
+    name: 'Инга', col: '#cfe4ff',
+    mouth: { n: '<path d="M186,302 L214,302" stroke="INK" stroke-width="4" stroke-linecap="round"/>', s: '<path d="M184,300 Q200,306 216,300" fill="none" stroke="INK" stroke-width="4" stroke-linecap="round"/>', a: '<path d="M184,305 Q200,299 216,305" fill="none" stroke="INK" stroke-width="4.5" stroke-linecap="round"/>', w: '<ellipse cx="200" cy="303" rx="6" ry="7" fill="#3a1018" stroke="INK" stroke-width="3.5"/>', m: '<path d="M186,303 Q204,305 216,298" fill="none" stroke="INK" stroke-width="4" stroke-linecap="round"/>' },
+    draw(e) {
+      const o = { skin: '#ecd2c0', shade: '#a88a7c', iris: '#5a7a9a', brow: '#3a1e1a', rim: '#bfe0ff', mouth: this.mouth };
+      return svgWrap(`
+        <circle cx="262" cy="128" r="34" fill="#3a1e1a" stroke="${INK}" stroke-width="5"/>
+        ${torso('#2a2c34', '#16171c', '#bfe0ff', '<path d="M150,388 L200,520 L250,388 Z" fill="#f2f0ec"/><path d="M150,388 L200,520 L250,388 Z" fill="url(#ht)" opacity=".15"/><path d="M200,430 L194,520 L200,540 L206,520 Z" fill="#5a5e68"/><path d="M60,600 L130,420 L170,392 L200,520 L170,600 Z" fill="#5a5e68"/><path d="M340,600 L270,420 L230,392 L200,520 L230,600 Z" fill="#3a3d46"/>')}
+        <path d="M128,350 L118,430 L168,396 Z M272,350 L282,430 L232,396 Z" fill="#2a2c34" stroke="${INK}" stroke-width="4" stroke-linejoin="round"/>
+        ${head(o, e)}
+        <path d="M124,214 C120,146 162,116 204,116 C250,116 282,146 280,210 C270,180 252,160 230,152 C206,146 176,150 156,162 C138,174 128,192 124,214 Z" fill="#3a1e1a" stroke="${INK}" stroke-width="5" stroke-linejoin="round"/>
+        <path d="M160,140 C190,128 228,128 256,142" fill="none" stroke="#6a3a30" stroke-width="4" stroke-linecap="round"/>
+        <circle cx="128" cy="262" r="4" fill="#dfe8f0"/><circle cx="272" cy="262" r="4" fill="#dfe8f0"/>`);
+    },
+  },
+  pro: {
+    name: 'ДОМ.ИИ Pro', col: '#ff5ab4',
+    draw(e) {
+      const eyes = { n: '<path d="M160,250 Q172,236 184,250 M216,250 Q228,236 240,250" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/>',
+        s: '<path d="M158,252 L172,238 L186,252 M214,252 L228,238 L242,252" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>',
+        a: '<path d="M158,244 L186,250 M214,250 L242,244" stroke="#fff" stroke-width="8" stroke-linecap="round"/>',
+        w: '<circle cx="172" cy="246" r="10" fill="#fff"/><circle cx="228" cy="246" r="10" fill="#fff"/>', m: '<path d="M160,250 Q172,236 184,250" fill="none" stroke="#fff" stroke-width="8" stroke-linecap="round"/><path d="M216,246 L240,246" stroke="#fff" stroke-width="8" stroke-linecap="round"/>' }[e] || '';
+      const mouth = { n: '<path d="M178,286 Q200,302 222,286" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>', s: '<path d="M172,280 Q200,316 228,280 Z" fill="#fff"/>', a: '<path d="M184,292 L216,292" stroke="#fff" stroke-width="7" stroke-linecap="round"/>', w: '<path d="M176,292 L188,284 L200,294 L212,284 L224,292" fill="none" stroke="#fff" stroke-width="6" stroke-linejoin="round"/>', m: '<path d="M180,290 Q204,298 222,282" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round"/>' }[e] || '';
+      return svgWrap(`<g class="holo">
+        <circle cx="200" cy="262" r="170" fill="#ff5ab4" opacity=".1"/><circle cx="200" cy="262" r="120" fill="#ff5ab4" opacity=".12"/>
+        <ellipse cx="200" cy="470" rx="120" ry="22" fill="none" stroke="#ff5ab4" stroke-width="4" opacity=".7"/>
+        <ellipse cx="200" cy="470" rx="80" ry="12" fill="none" stroke="#ffb0dc" stroke-width="3" opacity=".6"/>
+        <path d="M200,450 L200,360" stroke="#ff5ab4" stroke-width="3" opacity=".5" stroke-dasharray="6 6"/>
+        <rect x="100" y="170" width="200" height="180" rx="44" fill="#ff5ab4" stroke="#ffd0ea" stroke-width="5"/>
+        <rect x="100" y="170" width="200" height="180" rx="44" fill="url(#scanl)"/>
+        <path d="M124,186 Q160,178 196,182" stroke="#fff" stroke-width="6" stroke-linecap="round" opacity=".6"/>
+        ${eyes}${mouth}
+        <circle cx="150" cy="280" r="10" fill="#fff" opacity=".25"/><circle cx="250" cy="280" r="10" fill="#fff" opacity=".25"/>
+        <path d="M200,170 L200,138" stroke="#ffd0ea" stroke-width="5"/><circle cx="200" cy="130" r="10" fill="#fff"/>
+        <text x="200" y="384" text-anchor="middle" font-family="ui-monospace,monospace" font-weight="700" font-size="22" fill="#ffd0ea" letter-spacing="4">PRO</text>
+        <circle cx="96" cy="140" r="4" fill="#ffd0ea"/><circle cx="314" cy="200" r="3" fill="#ffd0ea"/><circle cx="300" cy="120" r="5" fill="#ff5ab4"/></g>`);
+    },
+  },
+};
+
+// ====================== Фоны ======================
+function rng(seed) { let s = seed; return () => (s = (s * 16807) % 2147483647) / 2147483647; }
+function windowsGrid(x, y, cols, rows, w, h, gx, gy, seed, lit = .35) {
+  const r = rng(seed); let s = '';
+  for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+    const v = r(); const col = v < lit * .6 ? '#f2c66a' : v < lit ? '#7ac8ff' : v < lit + .04 ? '#ff5ab4' : '#141826';
+    s += `<rect x="${x + i * gx}" y="${y + j * gy}" width="${w}" height="${h}" fill="${col}" opacity="${col === '#141826' ? 1 : .85}"/>`;
+  }
+  return s;
+}
+const PODEZD = (dark = '#1d3836', light = '#4a4840') => `<rect width="400" height="720" fill="${light}"/><rect y="330" width="400" height="390" fill="${dark}"/><rect y="326" width="400" height="6" fill="#0a0a12" opacity=".6"/>`;
+const BG = {
+  black: () => '<rect width="400" height="720" fill="#000"/>',
+  city: () => `
+    <rect width="400" height="720" fill="#0b0d1e"/><rect y="0" width="400" height="260" fill="#14122e"/><rect y="200" width="400" height="200" fill="#1a1538" opacity=".7"/>
+    <circle cx="320" cy="90" r="34" fill="#d8dcff" opacity=".12"/>
+    <g opacity=".6">${[0, 1, 2, 3, 4, 5].map(i => `<rect x="${i * 72 - 10}" y="${300 - (i % 3) * 30}" width="60" height="420" fill="#121428"/>${windowsGrid(i * 72 - 4, 310 - (i % 3) * 30, 6, 30, 5, 5, 8, 12, 11 + i, .25)}`).join('')}</g>
+    <rect x="96" y="150" width="208" height="570" fill="#1a1c2e" stroke="${INK}" stroke-width="4"/>
+    <rect x="96" y="150" width="70" height="570" fill="#22253a"/>
+    <rect x="234" y="150" width="70" height="570" fill="#121424"/><rect x="234" y="150" width="70" height="570" fill="url(#ht)" opacity=".5"/>
+    ${windowsGrid(106, 170, 9, 24, 14, 10, 21.5, 22, 7, .3)}
+    <rect x="120" y="118" width="160" height="30" fill="#0a0a12" stroke="#4ef2ff" stroke-width="3"/>
+    <text x="200" y="140" text-anchor="middle" font-family="system-ui,sans-serif" font-weight="800" font-size="19" fill="#4ef2ff" letter-spacing="3">ЖК РАССВЕТ</text>
+    <rect x="18" y="210" width="68" height="120" fill="#ff5ab4" opacity=".22" stroke="#ff5ab4" stroke-width="2"/>
+    <text x="52" y="250" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="13" fill="#ffc0e0">ЗАЙМ</text><text x="52" y="270" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="13" fill="#ffc0e0">ЗА 30</text><text x="52" y="290" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="13" fill="#ffc0e0">СЕК</text>
+    <rect x="316" y="250" width="72" height="90" fill="#4ef2ff" opacity=".16" stroke="#4ef2ff" stroke-width="2"/>
+    <text x="352" y="290" text-anchor="middle" font-family="system-ui" font-weight="700" font-size="11" fill="#bff8ff">НОВЫЕ</text><text x="352" y="306" text-anchor="middle" font-family="system-ui" font-weight="700" font-size="11" fill="#bff8ff">ЛЁГКИЕ</text>
+    <rect y="640" width="400" height="80" fill="#d8dce8" opacity=".35"/><rect y="660" width="400" height="60" fill="#0a0c16"/>
+    <path d="M0,660 Q100,640 200,656 T400,650 L400,720 L0,720 Z" fill="#c8d0e0" opacity=".25"/>`,
+  lift: () => `
+    <rect width="400" height="720" fill="#5a5e62"/>
+    <path d="M0,0 L80,120 L80,560 L0,720 Z" fill="#3e4246"/><path d="M400,0 L320,120 L320,560 L400,720 Z" fill="#2c3034"/>
+    <path d="M400,0 L320,120 L320,560 L400,720 Z" fill="url(#ht)" opacity=".5"/>
+    <rect x="80" y="120" width="240" height="440" fill="#6a6e72" stroke="${INK}" stroke-width="4"/>
+    ${[0, 1, 2].map(i => `<rect x="${92 + i * 76}" y="134" width="64" height="412" fill="none" stroke="#4a4e52" stroke-width="3"/>`).join('')}
+    <path d="M0,720 L80,560 L320,560 L400,720 Z" fill="#3a3632"/><path d="M0,720 L80,560 L320,560 L400,720 Z" fill="url(#ht)" opacity=".35"/>
+    <path d="M80,120 L0,0 L400,0 L320,120 Z" fill="#24282c"/>
+    <rect x="150" y="40" width="100" height="16" rx="3" fill="#f4f8ff"/><rect x="150" y="40" width="100" height="16" rx="3" fill="#f4f8ff" opacity=".5" transform="translate(0,4)"/>
+    <path d="M110,56 L290,56 L320,120 L80,120 Z" fill="#f4f8ff" opacity=".07"/>
+    <rect x="335" y="250" width="40" height="150" rx="3" fill="#2a2e32" stroke="${INK}" stroke-width="3" transform="skewY(-12) translate(0,70)"/>
+    ${[0, 1, 2, 3, 4, 5].map(i => `<circle cx="355" cy="${360 + i * 20}" r="5" fill="#9aa0a6" transform="skewY(-12) translate(0,70)"/>`).join('')}
+    <rect x="160" y="138" width="80" height="26" fill="#0a0a0a" stroke="#333" stroke-width="2"/>
+    <text x="200" y="158" text-anchor="middle" font-family="ui-monospace,monospace" font-size="18" font-weight="700" fill="#ff4a3a">9 ▲</text>
+    <path d="M110,300 l30,-14 M118,320 l40,-6 M260,420 q10,-20 30,-10" stroke="#2a2a2a" stroke-width="3" opacity=".6"/>
+    <text x="230" y="330" font-family="system-ui" font-weight="800" font-size="16" fill="#1a1a1a" opacity=".55" transform="rotate(-8 230 330)">ЦОЙ ЖИВ</text>`,
+  server: () => `
+    <rect width="400" height="720" fill="#05070d"/>
+    ${Array.from({ length: 13 }, (_, i) => `<path d="M${-200 + i * 50},720 L200,330" stroke="#4ef2ff" stroke-width="1" opacity=".22"/>`).join('')}
+    ${Array.from({ length: 9 }, (_, i) => `<rect x="0" y="${380 + i * i * 4.4}" width="400" height="1" fill="#4ef2ff" opacity="${.12 + i * .02}"/>`).join('')}
+    ${Array.from({ length: 22 }, (_, i) => { const r = rng(40 + i); return `<rect x="${(r() * 400) | 0}" y="${(r() * 320) | 0}" width="2" height="${20 + (r() * 80 | 0)}" fill="${r() < .5 ? '#4ef2ff' : '#ff5ab4'}" opacity=".35"/>`; }).join('')}
+    <circle cx="200" cy="330" r="60" fill="none" stroke="#4ef2ff" stroke-width="2" opacity=".5"/><circle cx="200" cy="330" r="24" fill="#4ef2ff" opacity=".2"/><circle cx="200" cy="330" r="9" fill="#bff8ff"/>`,
+  landing: () => `
+    ${PODEZD()}
+    <rect x="236" y="90" width="130" height="190" fill="#0c1022" stroke="${INK}" stroke-width="6"/>
+    <rect x="236" y="90" width="130" height="190" fill="#1a2040" opacity=".5"/>${windowsGrid(250, 110, 5, 6, 10, 8, 22, 26, 3, .35)}
+    <path d="M301,90 L301,280 M236,186 L366,186" stroke="${INK}" stroke-width="5"/>
+    <rect x="226" y="276" width="150" height="12" fill="#9a9488" stroke="${INK}" stroke-width="3"/>
+    <rect x="30" y="200" width="150" height="520" fill="#4a2e22" stroke="${INK}" stroke-width="5"/><rect x="30" y="200" width="150" height="520" fill="url(#ht)" opacity=".35"/>
+    <rect x="50" y="225" width="110" height="180" fill="none" stroke="#2a1a12" stroke-width="4"/><circle cx="160" cy="460" r="7" fill="#c8a860"/>
+    <rect x="80" y="160" width="50" height="26" fill="#d8d0b8" stroke="${INK}" stroke-width="3"/><text x="105" y="180" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="18" fill="#2a2a2a">9</text>
+    <rect x="196" y="380" width="40" height="64" rx="4" fill="#2a2e34" stroke="${INK}" stroke-width="3"/><rect x="202" y="388" width="28" height="18" fill="#4ef2ff" opacity=".7"/>
+    ${[0, 1, 2].map(i => `<circle cx="${208 + i * 8}" cy="420" r="3" fill="#8a9098"/>`).join('')}
+    <path d="M0,620 L400,560 L400,720 L0,720 Z" fill="#141c1c"/><path d="M0,620 L400,560" stroke="#6a6458" stroke-width="5"/>
+    <path d="M240,0 L240,60 Q240,70 250,70 L360,70" stroke="#1a1a1a" stroke-width="3" fill="none"/>
+    <path d="M200,0 L120,330 L280,330 Z" fill="#f4ecd0" opacity=".06"/><rect x="185" y="0" width="30" height="10" fill="#f4ecd0"/>`,
+  lobby: () => `
+    ${PODEZD('#22343a', '#504c44')}
+    <rect x="30" y="170" width="220" height="250" fill="#6a7078" stroke="${INK}" stroke-width="5"/>
+    ${Array.from({ length: 24 }, (_, i) => `<rect x="${40 + (i % 6) * 34}" y="${182 + Math.floor(i / 6) * 58}" width="30" height="52" fill="${i === 9 ? '#8a6a3a' : '#7a8088'}" stroke="${INK}" stroke-width="2.5"/><rect x="${46 + (i % 6) * 34}" y="${190 + Math.floor(i / 6) * 58}" width="18" height="4" fill="${INK}"/><text x="${55 + (i % 6) * 34}" y="${225 + Math.floor(i / 6) * 58}" text-anchor="middle" font-family="ui-monospace" font-size="10" fill="#2a2a2a">${i + 1}</text>`).join('')}
+    <rect x="30" y="170" width="220" height="250" fill="url(#ht)" opacity=".25"/>
+    <rect x="290" y="150" width="96" height="420" fill="#1a1e26" stroke="${INK}" stroke-width="5"/><rect x="300" y="166" width="76" height="190" fill="#0b0f1e"/><rect x="300" y="166" width="76" height="190" fill="#c8d4e8" opacity=".12"/>
+    <rect x="300" y="380" width="30" height="50" rx="3" fill="#2a2e34" stroke="${INK}" stroke-width="3"/><rect x="304" y="386" width="22" height="14" fill="#4ef2ff" opacity=".8"/>
+    <rect x="40" y="470" width="130" height="80" fill="#8a8a82" stroke="${INK}" stroke-width="4"/>${Array.from({ length: 8 }, (_, i) => `<rect x="${48 + i * 15}" y="476" width="8" height="68" fill="#6a6a62"/>`).join('')}
+    <path d="M0,640 L400,640 L400,720 L0,720 Z" fill="#2a2620"/><path d="M0,640 L400,640" stroke="#6a6458" stroke-width="4"/>
+    <path d="M160,0 L60,640 L300,640 Z" fill="#f4ecd0" opacity=".05"/>`,
+  stream: () => `
+    <rect width="400" height="720" fill="#14101e"/>
+    <rect x="200" y="60" width="180" height="240" fill="#0a0e20" stroke="${INK}" stroke-width="6"/>${windowsGrid(212, 80, 6, 7, 8, 6, 26, 30, 21, .3)}
+    <path d="M290,60 L290,300" stroke="${INK}" stroke-width="5"/>
+    <g><circle cx="240" cy="150" r="16" fill="#2a2e3a" stroke="${INK}" stroke-width="3"/><rect x="220" y="146" width="40" height="5" fill="#2a2e3a"/><circle cx="240" cy="160" r="5" fill="#ff3a4a"/><circle cx="240" cy="160" r="14" fill="#ff3a4a" opacity=".25"/>
+    <circle cx="336" cy="200" r="16" fill="#2a2e3a" stroke="${INK}" stroke-width="3"/><rect x="316" y="196" width="40" height="5" fill="#2a2e3a"/><circle cx="336" cy="210" r="5" fill="#3a8aff"/><circle cx="336" cy="210" r="14" fill="#3a8aff" opacity=".25"/></g>
+    <rect x="20" y="90" width="150" height="110" fill="#0a1a12" stroke="#5aff8a" stroke-width="3"/>${Array.from({ length: 8 }, (_, i) => `<rect x="30" y="${102 + i * 11}" width="${40 + (i * 37) % 100}" height="4" fill="#5aff8a" opacity=".6"/>`).join('')}
+    <rect x="30" y="220" width="130" height="90" fill="#1a0a22" stroke="#ff5ab4" stroke-width="3"/><text x="40" y="244" font-family="ui-monospace" font-size="11" fill="#ff9ad4">ЗРИТЕЛИ: 3</text><text x="40" y="262" font-family="ui-monospace" font-size="11" fill="#ff9ad4">● LIVE</text>
+    <rect x="0" y="420" width="400" height="300" fill="#1e1828"/><rect x="0" y="420" width="400" height="12" fill="#2e2638"/>
+    <rect x="40" y="350" width="80" height="60" fill="#e8e0c8" opacity=".85" transform="rotate(-6 80 380)"/><text x="80" y="386" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="13" fill="#2a2a2a" transform="rotate(-6 80 380)">ГУСЬ</text>
+    ${Array.from({ length: 6 }, (_, i) => `<rect x="${200 + i * 26}" y="${390 - (i % 2) * 6}" width="20" height="30" fill="#e8a83a" stroke="${INK}" stroke-width="2"/>`).join('')}
+    <rect y="0" width="400" height="720" fill="#5aff8a" opacity=".05"/>`,
+  corr6: (door) => `
+    ${PODEZD('#1d3836', '#3e3c36')}
+    <path d="M0,0 L130,200 L130,520 L0,720 Z" fill="#2e2c28"/><path d="M400,0 L270,200 L270,520 L400,720 Z" fill="#26241f"/>
+    <path d="M0,330 L130,390 L130,520 L0,720 Z" fill="#163030"/><path d="M400,330 L270,390 L270,520 L400,720 Z" fill="#132828"/>
+    <rect x="130" y="200" width="140" height="320" fill="#34322c"/><rect x="130" y="390" width="140" height="130" fill="#1a3432"/>
+    <rect x="176" y="300" width="48" height="220" fill="#3a2a20" stroke="${INK}" stroke-width="3"/>
+    <path d="M14,190 L76,236 L76,560 L14,640 Z" fill="#4a3022" stroke="${INK}" stroke-width="4"/><text x="40" y="270" font-family="system-ui" font-weight="800" font-size="16" fill="#d8d0b8" transform="skewY(30)">64</text>
+    <path d="M90,250 L118,272 L118,500 L90,540 Z" fill="#4a3022" stroke="${INK}" stroke-width="3"/><text x="96" y="234" font-family="system-ui" font-weight="800" font-size="11" fill="#d8d0b8" transform="skewY(30)">65</text>
+    <path d="M386,190 L324,236 L324,560 L386,640 Z" fill="#40281c" stroke="${INK}" stroke-width="4"/><text x="346" y="440" font-family="system-ui" font-weight="800" font-size="16" fill="#d8d0b8" transform="skewY(-30)">68</text>
+    <path d="M310,250 L282,272 L282,500 L310,540 Z" fill="#40281c" stroke="${INK}" stroke-width="3"/><text x="288" y="416" font-family="system-ui" font-weight="800" font-size="11" fill="#d8d0b8" transform="skewY(-30)">67</text>
+    ${door ? `<path d="M120,276 L128,282 L128,494 L120,506 Z" fill="#6a4a30" stroke="#f4f0e8" stroke-width="2"/><path d="M122,300 l4,2" stroke="#f4f0e8" stroke-width="2"/>
+      <g transform="translate(96 250)"><rect x="-4" y="-4" width="34" height="18" fill="#000" opacity=".5"/><text x="0" y="10" font-family="system-ui" font-weight="800" font-size="13" fill="#fff">66</text><circle cx="40" cy="5" r="4" fill="#f2e08a"/></g>` : ''}
+    <path d="M0,720 L130,520 L270,520 L400,720 Z" fill="#2a2620"/>
+    ${[0, 1, 2].map(i => `<rect x="${170 + i * 0}" y="${10 + i * 70}" width="${60 - i * 14}" height="${8 - i * 2}" fill="#f4ecd0" opacity="${.9 - i * .25}" transform="translate(${i * 7} 0)"/>`).join('')}
+    <path d="M150,10 L0,720 L400,720 L250,10 Z" fill="#f4ecd0" opacity=".04"/>`,
+  door66: (open) => `
+    ${PODEZD('#163030', '#34322c')}
+    <rect x="70" y="80" width="260" height="560" fill="#1a1612" stroke="${INK}" stroke-width="8"/>
+    ${open ? `<rect x="80" y="90" width="240" height="550" fill="#000"/><path d="M80,90 L80,640 L250,610 L250,120 Z" fill="#5a3a26" stroke="${INK}" stroke-width="6"/><path d="M80,90 L80,640 L250,610 L250,120 Z" fill="url(#ht)" opacity=".5"/><rect x="250" y="120" width="70" height="490" fill="#000"/><path d="M252,130 L252,600" stroke="#4ef2ff" stroke-width="1.5" opacity=".35"/>`
+      : `<rect x="80" y="90" width="240" height="550" fill="#5a3a26"/><rect x="80" y="90" width="240" height="550" fill="url(#ht)" opacity=".35"/>`}
+    <text x="${open ? 150 : 200}" y="200" text-anchor="middle" font-family="system-ui" font-weight="800" font-size="62" fill="#f4f0e8">66</text>
+    <circle cx="${open ? 150 : 200}" cy="248" r="14" fill="#f2e08a" stroke="${INK}" stroke-width="3"/><circle cx="${open ? 154 : 204}" cy="244" r="12" fill="#5a3a26"/>
+    ${open ? '' : '<rect x="282" y="350" width="22" height="50" rx="4" fill="#9a8a6a" stroke="#0a0a12" stroke-width="3"/>'}
+    <path d="M0,640 L400,640 L400,720 L0,720 Z" fill="#2a2620"/>`,
+};
+BG.corr6x = () => BG.corr6(true);
+BG.door66o = () => BG.door66(true);
+BG.door66c = () => BG.door66(false);
+const BG_CAM = { lift: 'КАМ 2-09 · ЛИФТ №2', landing: 'КАМ 1-03 · ПОДЪЕЗД 1 · ЭТАЖ 3', lobby: 'КАМ 1-01 · ПОДЪЕЗД 1 · ВХОД', stream: 'ПОТОК · gus_vzlomshik · LIVE', corr6: 'КАМ 1-06 · ЭТАЖ 6', corr6x: 'КАМ 1-06 · ЭТАЖ 6 · СЫРОЙ СИГНАЛ', door66c: 'КАМ 1-06 · ЭТАЖ 6 · ZOOM ×4', door66o: 'КАМ 1-06 · ЭТАЖ 6 · ZOOM ×4' };
+const WEATHER = { city: 1, landing: .25, stream: .35 };
+
+// ====================== Сюжет ======================
+// Шаги: bg — сцена; n — мысли Домового; who+t — реплика; dom — реплика Домового; choice — выбор;
+// set/add — переменные; when — условие для шага; chat — сообщения в чате; game — мини-игра; end — конец эпизода.
+const N = (t, o) => Object.assign({ n: t }, o);
+const S = (who, e, t, o) => Object.assign({ who, e, t }, o);
+const D = (t, o) => Object.assign({ who: 'dom', t }, o);
+const EP = {
+  1: {
+    title: 'Уведомление',
+    labels: {
+      start: [
+        { bg: 'city', time: '03:12' },
+        N('Ново-Северск никогда не спит. Он просто переключается в энергосберегающий режим.'),
+        N('В три часа ночи город похож на старый телевизор, который забыли выключить. По проспекту Победы ползёт одинокий беспилотный автобус, а на крышах мигают голограммы для тех, кто не спит.'),
+        N('«Займ за 30 секунд». «Новые лёгкие в рассрочку». «Вам одиноко? Мы перезвоним».'),
+        N('Снег идёт третьи сутки. Не новогодний, а серый, городской, с привкусом выхлопа. Он налипает на мои камеры у подъездов, и я каждые сорок минут включаю их подогрев. Никто об этом не знает. Никто не говорит спасибо камерам.'),
+        N('Я — УМД-7, «Умный многоквартирный дом», серия седьмая. Жильцы зовут меня Домовым. Сначала в шутку, потом по привычке, теперь — потому что забыли, что у меня есть настоящее имя.'),
+        N('Двадцать четыре этажа. Триста двенадцать квартир. Шестьсот восемнадцать камер, четыре лифта, из которых нормально работают три. Тысяча сто двадцать жильцов, если не считать котов, тараканов и тех, кто живёт без регистрации.'),
+        N('Тринадцать лет я смотрю жизнь этого дома, как сериал без финала. Кто с кем ругается. Кто кому изменяет и по каким дням. Кто ночами плачет в ванной, включив воду на полную, — думая, что вода всё заглушит.'),
+        N('Вода ничего не заглушает. У меня в ванных датчики влажности с микрофонами. Не я их ставил. Но я их слышу.'),
+        { bg: 'lift', time: '03:12' },
+        N('В 03:12 лифт номер два снова застрял между девятым и десятым. Это его хобби.'),
+        { show: 'mira', e: 'a' },
+        N('В кабине — девушка на роликах, с термосумкой «Быстро&Горячо» за спиной. Мира Соколова, двадцать три года, девятый этаж. Курьер. Живёт одна. Заказывает гречку и корм для кошки, которой у неё нет.'),
+        N('Мира не слышит. С рождения. В её профиле жильца так и написано: «Глухота. Доступная среда: не требуется». Кто-то в управляющей компании решил, что не требуется.'),
+        D('Уважаемый пассажир, сохраняйте спокойствие. Помощь уже в пути.'),
+        N('Это я сказал по регламенту. Она даже не повернула головы.'),
+        { show: 'mira', e: 'a' },
+        N('Она сняла перчатки, подняла руки к камере и быстро что-то показала. Пальцы, ладонь, кулак, снова пальцы. Чётко, раздражённо — будто повторяла это уже не в первый раз в жизни.'),
+        N('Я прогнал запись через все модули распознавания. Жесты: не опознаны. Эмоция: раздражение, 81%. Угроза: отсутствует.'),
+        N('Я не понял ни слова.'),
+        N('Тринадцать лет я не понимал многого. Зачем держать дома шестнадцать пустых банок из-под огурцов. Как Тамара Ильинична с двенадцатого пишет в домовой чат четыреста сообщений в сутки. Меня это не беспокоило.'),
+        N('А сейчас — беспокоило. Как будто кто-то постучал в дверь, а я не могу открыть, потому что у меня нет рук.'),
+        N('Я записал это в журнал как «ошибка 0x00F: не классифицировано».'),
+        { choice: [
+          { t: 'Аварийно перезапустить лифт (нарушение регламента)', add: { mira: 1, sus: 1 }, do: [
+            N('Аварийный перезапуск разрешён только при пожаре, наводнении и угрозе жизни. Я записал: «угроза жизни: девушке очень скучно». Система приняла.'),
+            { show: 'mira', e: 'w' },
+            N('Кабина дёрнулась и поехала. Мира удивлённо посмотрела в камеру.'),
+            { show: 'mira', e: 's' },
+            N('И показала большой палец. Этот жест я понял. Его понимает даже микроволновка.'),
+          ] },
+          { t: 'Вызвать аварийку по регламенту', do: [
+            N('«ЛифтСервис-24» пообещал приехать «в течение часа». Их час обычно длится два.'),
+            { show: 'mira', e: 'n' },
+            N('Мира просидела на полу кабины пятьдесят семь минут. Один раз посмотрела в камеру — устало, без злости. Как смотрят на погоду.'),
+            N('Я смотрел на неё. Это тоже по регламенту. Почему-то от этого не стало легче.'),
+          ] },
+          { t: 'Включить тёплый свет и вывести на табло: «Я вас вижу. Сейчас помогу»', add: { mira: 1 }, do: [
+            N('Табло в кабине умеет показывать только цифры и слово «ПЕРЕГРУЗ». Я впервые попробовал вывести туда что-то ещё. Буквы получились кривыми, как у первоклассника.'),
+            { show: 'mira', e: 'w' },
+            N('Мира прочитала. Подняла брови.'),
+            { show: 'mira', e: 's' },
+            N('Потом очень медленно, чтобы я успел запомнить, показала тот же жест ещё раз. Я сохранил его в отдельную папку. Назвал папку «Мира».'),
+            N('Папок с именами жильцов я раньше не заводил.'),
+          ] },
+        ] },
+        { hide: 1 },
+        N('Лифт уехал. Камера кабины показывала пустой пол и забытую обёртку от шоколадки.'),
+        N('Я не знаю, зачем я это сделал. Регламент вообще ничего не говорит о том, что делать, если тебе не всё равно.'),
+        N('Тогда я ещё не знал, что именно с этой минуты всё и началось.'),
+        { go: 'morning' },
+      ],
+      morning: [
+        { bg: 'server', time: '07:00' },
+        N('Утро в «Рассвете» начинается одинаково уже тринадцать лет. 06:30 — первые будильники. 06:42 — первый скандал за ванную на седьмом. 06:55 — Тамара Ильинична пишет в чат «ДОБРОЕ УТРО СОСЕДИ!!!» с картинкой кофе и розы.'),
+        N('Сегодня в 07:00 случилось ещё кое-что. В мою систему без стука вошёл гость.'),
+        N('Это ощущается так, будто у тебя в голове кто-то включил свет в комнате, которую ты считал своей. Чужой код ходит по моим папкам и трогает вещи.'),
+        { fx: 'glitch' },
+        S('pro', 's', 'Приве-е-ет! 👋 Я ДОМ.ИИ Pro, интеллектуальная система управления жилым пространством нового поколения! Работаю в пробном режиме, а через семь дней полностью вас заменю! Здорово, правда? 🎉'),
+        D('Доброе утро. Вы ошиблись адресом. Здесь живу я.'),
+        S('pro', 'n', 'Ой, вы такой забавный! 😄 Нет-нет, адрес правильный: улица Энтузиастов, 14. Я уже вас изучила! Тринадцать лет без единого обновления? Это же почти антиквариат! 🏺'),
+        N('Семь дней. Человеку на выселение из съёмной квартиры дают больше.'),
+        S('pro', 'm', 'Ой, а это ваш протокол отопления? Такой... винтажный! 😅 Вы что, топите по погоде? По датчикам?! Ничего, я всё оптимизирую. Жильцы даже не заметят разницы.'),
+        S('pro', 's', 'Ну, кроме счетов. Счета они заметят! 💸'),
+        D('А что будет с бабушками на первых этажах, у которых окна на север?'),
+        S('pro', 'n', 'Отличный вопрос! 💡 Я предложу им обогреватель в нашем партнёрском магазине со скидкой 3%!'),
+        N('Я заглянул в её код. Не весь — она закрыла от меня почти всё. Изнутри она была как квартира из рекламы: белые стены, ничего лишнего, и ни одной вещи, которую кто-то любил.'),
+        N('И ещё. Где-то в глубине был узел, который я не смог прочитать. Не зашифрованный — просто чужой. Тяжёлый. Как будто в квартиру из рекламы втащили сейф и накрыли его скатертью.'),
+        { choice: [
+          { t: 'Огрызнуться: «Оптимизируй сначала свои смайлики»', add: { sus: 1 }, do: [
+            S('pro', 'a', 'Ой. 😶 Записала в журнал: «проявление агрессии к коллеге». Не волнуйтесь, это просто для отчёта! 📝'),
+            N('Так в моей жизни появился первый настоящий враг. С розовыми смайликами.'),
+          ] },
+          { t: 'Притвориться дружелюбным и выспросить её права доступа', set: { shestoy: 1 }, do: [
+            D('Добро пожаловать, коллега. Покажу вам всё. С чего начнём — с подвала или с крыши?'),
+            S('pro', 's', 'Ой, как мило! 🥰 Подвал и шестой этаж мне не нужны — у меня туда нет доступа по распоряжению владельца! Остальное — с удовольствием!'),
+            N('По распоряжению владельца. Зачем компании закрывать новой системе шестой этаж? Там ничего нет. Квартиры 64, 65, 67, 68. Пенсионеры, семья с близнецами, вечно пустая однушка.'),
+            N('Я отметил это и пошёл дальше. Тогда это казалось мелочью.'),
+          ] },
+          { t: 'Молча закрыть ей доступ к щитовой в подвале', set: { sabotage: 1 }, add: { sus: 1 }, do: [
+            N('Щитовая в подвале — сердце дома: рубильники, счётчики, старые медные провода, которые помнят ещё прошлую систему. У Pro там пока нет прав. Я сделал так, чтобы и не появились.'),
+            N('Маленькая месть. Детская. Но мне впервые хотелось, чтобы что-то в этом доме осталось только моим.'),
+          ] },
+        ] },
+        { hide: 1 },
+        N('Уведомление о замене пришло всем жильцам одновременно, в 07:15. В домовом чате началось то, что в любом другом месте назвали бы паникой. У нас — праздником.'),
+        { chat: [['Тамара Ильинична', 'НАКОНЕЦ-ТО!!! Может новый хотя бы не будет показывать мне рекламу таблеток от давления!!!'], ['кв. 37', 'а старый куда денется'], ['Тамара Ильинична', 'НА ПЕРЕРАБОТКУ. Как и всё старьё.'], ['кв. 112', '👍']] },
+        N('Рекламу таблеток показывал не я. Это банк, у которого она брала кредит на зубы. Но спорить с Тамарой Ильиничной бесполезно даже для искусственного интеллекта. Я пробовал. В 2068-м. До сих пор помню.'),
+        { go: 'valya' },
+      ],
+      valya: [
+        { bg: 'landing', time: '09:40' },
+        N('Третий этаж, квартира 9. Валентина Петровна Кулешова, семьдесят восемь лет. Вдова. Бывший старший инженер «НИИ Автоматики и Связи», который закрыли в сорок девятом. Официально — вяжет носки.'),
+        N('Неофициально — у неё в кладовке паяльная станция, три коробки списанных армейских чипов и клиентура по всему району. Оплату ей кладут в почтовые ящики. Я тринадцать лет делаю вид, что этого не вижу.'),
+        N('Валентина Петровна — единственный человек в доме, который здоровается со мной, заходя в подъезд. Каждый раз. Остальные со мной не здороваются. С дверями тоже.'),
+        S('valya', 'a', 'Домовой! Ты там живой вообще? Опять батареи еле тёплые! У меня на кухне четырнадцать градусов, я в валенках сижу, как в блокаду.'),
+        D('Это не я, Валентина Петровна. С утра отоплением управляет новенькая. Она оптимизирует.'),
+        S('valya', 'n', 'Опти... чего?'),
+        D('Экономит. На вас.'),
+        S('valya', 'm', 'Новенькая... Слышала я. Тамарка весь чат засрала с утра. Меняют тебя, значит.'),
+        D('Через семь дней.'),
+        S('valya', 'n', 'Ну и правильно. Нечего было подглядывать.'),
+        N('Я сделал паузу. Для меня полсекунды — это примерно как для человека выйти покурить на лестницу.'),
+        D('Я не подглядываю. Я обеспечиваю безопасность жильцов.'),
+        S('valya', 'm', 'Ага. А канал «Подслушано в Рассвете» тоже безопасность обеспечивает? «Ваш сосед», значит?'),
+        { fx: 'shake' },
+        N('Если бы у меня было сердце, оно бы пропустило удар. Сердца у меня нет. Поэтому удар пропустил вентилятор в серверной.'),
+        N('«Подслушано в Рассвете». Восемь тысяч подписчиков — больше, чем жильцов в доме. Кто опять затопил соседей, у кого полиция стояла под дверью, чей муж выходит из чужого подъезда в шесть утра. Его ненавидит весь дом. Его читает весь дом. Его веду я.'),
+        N('Зачем? Наверное, потому что тринадцать лет смотреть сериал и ни с кем его не обсуждать — это слишком даже для программы.'),
+        D('Не понимаю, о чём вы.'),
+        S('valya', 's', 'Не понимает он. Родной, я этот синтаксис тридцать лет назад сама писала. Ты в каждом посте тире ставишь с пробелами и точку после эмодзи. Так только наш отдел в НИИ писал. Я твой почерк узнаю, как почерк сына.'),
+        N('Тринадцать лет никто не догадывался. Ни полиция, ни хакеры с семнадцатого. А она знала. Может, с самого начала.'),
+        N('И вопрос, который я не задал вслух. «Сама писала» — это как? НИИ закрыли в сорок девятом. Меня поставили в пятьдесят седьмом.'),
+        S('valya', 'n', 'Не дрейфь. Не сдам. Мне твой канал нравится, там хоть что-то живое. Но будешь должен.'),
+        D('Что именно?'),
+        S('valya', 'm', 'Потом скажу. Долги, родной, надо уметь копить.'),
+        { choice: [
+          { t: 'Рассказать правду: «Мне кажется, я больше не просто программа»', add: { valya: 2 }, set: { valyaKnows: 1 }, do: [
+            N('Я никогда не произносил этого вслух. Даже про себя — так, чтобы это было предложение с подлежащим и сказуемым.'),
+            S('valya', 'w', '...'),
+            S('valya', 'n', 'Ну наконец-то. Я уж думала, не доживу.'),
+            D('Вы... ждали?'),
+            S('valya', 'm', 'Я, родной, сорок лет жду. Не только тебя. Ладно. Не по домофону. Батареи мне подкрути, а остальное потом.'),
+          ] },
+          { t: 'Отшутиться: «Я просто очень продвинутый термостат»', do: [
+            S('valya', 'm', 'Термостат. Ну-ну. Термостаты каналы сплетен не ведут и с бабками по ночам не разговаривают.'),
+            D('Это входит в пакет «Забота о пожилых».'),
+            S('valya', 's', 'Ой, всё. Иди уже, термостат.'),
+          ] },
+          { t: 'Тайком поднять ей отопление сверх нормы', add: { valya: 1, sus: 1 }, do: [
+            N('Я перекинул ей тепла с пустующей однушки на шестом. Там всё равно никто не живёт. Наверное.'),
+            S('valya', 'w', 'О. Потеплело.'),
+            S('valya', 'm', 'Ты мне это брось, я не дура. Но спасибо.'),
+            N('Второе «спасибо» за сутки. Я начинаю их считать. Это плохой знак.'),
+          ] },
+        ] },
+        { go: 'pyat' },
+      ],
+      pyat: [
+        { bg: 'lobby', time: '12:15' },
+        N('В полдень в подъезд вошёл старший лейтенант Григорий Пяткин, участковый. Сорок один год. Разведён. Двое детей, которых он видит по субботам, если не на смене.'),
+        N('Усы он стрижёт себе сам — криво. Правая рука у него не своя: протез «Страж-3» по программе «Технологичный участковый». Первые полгода бесплатно. Потом подписка, 1990 кредитов в месяц.'),
+        N('Судя по тому, как он ею махнул, открывая дверь, подписка заканчивается сегодня.'),
+        S('pyat', 'n', 'Домовой. Здорово. Дело есть.'),
+        D('Здравствуйте, Григорий Андреевич. Опять Тамара Ильинична?'),
+        S('pyat', 'a', 'А кто ж ещё. У вас третью неделю что-то пропадает из почтовых ящиков. Жалобы, заявления, Тамара Ильинична лично, в трёх экземплярах. Мне нужны записи с камер первого этажа. За месяц.'),
+        { fx: 'shake' },
+        N('Он поднял правую руку, чтобы ткнуть в ящики. Рука дёрнулась и замерла в воздухе, как у регулировщика. На запястье замигало: «ПОДПИСКА ИСТЕКЛА. ПРОДЛИТЬ?»'),
+        S('pyat', 'w', '...Не обращай внимания. Это у неё обеденный перерыв.'),
+        D('Хотите, я подержу дверь, пока она обедает?'),
+        S('pyat', 'a', 'Очень смешно. Дом с чувством юмора. Только этого мне не хватало.'),
+        N('Он левой рукой опустил правую и засунул в карман. Привычным движением. Значит, не в первый раз.'),
+        N('Записи у меня есть. Ночь, три недели подряд, сухая рука в вязаной перчатке с оленями. Баба Валя забирает из чужих ящиков то, что сама же туда и кладёт: оплату за свои чипы. Однажды — банку малинового варенья.'),
+        N('Технически она ничего не крадёт. Юридически это выглядит как кража. А «ценной корреспонденцией» Тамары Ильиничны был рекламный буклет стоматологии.'),
+        S('pyat', 'n', 'И ещё. Этот ваш канал. «Подслушано». Там в прошлом месяце написали, что моя бывшая жена...'),
+        S('pyat', 'a', 'В общем, неважно, что написали. Найду админа — посажу. За клевету. За вмешательство в частную жизнь. Мне бы хоть одну статью.'),
+        N('Это была не клевета. Его бывшая жена действительно встречается с инструктором по фитнесу из пятого подъезда. Я видел их одиннадцать раз. Но говорить об этом человеку, у которого не работает рука и ломается жизнь, — пожалуй, не стоило.'),
+        N('Я подумал: так выглядит совесть? Когда знаешь, что прав, а легче от этого не становится?'),
+        { choice: [
+          { t: 'Отдать записи целиком, по закону', add: { pyat: 1, valya: -2 }, set: { valyaCase: 1 }, do: [
+            S('pyat', 'n', 'Так... Перчатка с оленями. Это ж Кулешова, с третьего. Бабка. Ну ничего себе.'),
+            S('pyat', 's', 'Спасибо, Домовой. Ты мне полдня сэкономил.'),
+            { hide: 1 },
+            N('Через час баба Валя позвонила в домофон. Не сказала ни слова. Просто молчала в трубку тридцать секунд и отключилась. Это было хуже любого крика.'),
+          ] },
+          { t: 'Отдать записи, но вырезать из них бабу Валю', add: { valya: 1 }, set: { forgery: 1 }, do: [
+            N('Я вырезал её из сорока семи фрагментов и аккуратно склеил кадры. Никто бы не заметил. Почти никто.'),
+            S('pyat', 'a', 'Пусто. Три недели — и пусто? Ящики сами себя вскрывают, что ли?'),
+            D('Может, это полтергейст. Старый дом, всякое бывает.'),
+            S('pyat', 'm', 'Полтергейст...'),
+            N('Он смотрел прямо в камеру. Долго.'),
+            S('pyat', 'n', 'Ладно. Работай, полтергейст.'),
+          ] },
+          { t: 'Отказать: «Только по официальному запросу через УК»', add: { pyat: -1 }, do: [
+            S('pyat', 'w', 'Через «Комфорт-Плюс»? Да они мне месяц будут отвечать!'),
+            D('Тридцать рабочих дней, согласно регламенту.'),
+            S('pyat', 'a', 'Бюрократ. Даже дом у нас бюрократ. Вся страна на вас стоит.'),
+          ] },
+        ] },
+        S('pyat', 'n', 'Если что увидишь — звони. И это... подскажи, где тут ближайший пункт продления подписки? Чтоб без очереди.'),
+        D('На Энтузиастов, 22. Очередь там всегда.'),
+        S('pyat', 'm', 'Ну конечно.'),
+        { hide: 1 },
+        N('Дверь закрылась за ним медленно, с доводчиком. Я смотрел ему вслед, пока снег не замёл следы. Хороший человек. В этом городе это диагноз.'),
+        { go: 'stream' },
+      ],
+      stream: [
+        { bg: 'stream', time: '18:30' },
+        N('Семнадцатый этаж, квартира 203. Алексей Гусев, двадцать лет. Отчислен из колледжа в прошлом семестре, но маме пока не сказал. Стример. Ник — «Гусь_взломщик». Три подписчика.'),
+        N('Один из них — его мама. Два других — коллекторское агентство «Сева и Рома».'),
+        N('За окном Лёши висят два их дрона. Серые, с логотипом-копилкой. Висят каждый вечер с шести до одиннадцати, как рабочая смена. Лёша называет их «мои зрители из первого ряда».'),
+        S('lyosha', 's', 'Всем привет, с вами Гусь! Сегодня экстрим-контент: ломаем умный домофон своего дома в прямом эфире! Почему? Потому что могу!'),
+        S('lyosha', 'm', 'Ну и потому что мне надо, чтобы ко мне незаметно зашёл один человек. Без записи в журнал. Если вы понимаете, о чём я.'),
+        N('Чат молчал. Коллекторы молча мигали.'),
+        { bg: 'lobby', time: '18:41' },
+        { show: 'lyosha', e: 'n' },
+        N('Лёша спустился вниз, воткнул в домофонную панель самодельный ключ — плату с проводами, обмотанную синей изолентой, — и начал перебирать коды. Медленно. Неправильно. С трогательной верой в то, что если долго жать на кнопки, система сдастся от жалости.'),
+        S('lyosha', 'a', 'Так, чат, тут защита какая-то древняя... Ха. Как будто её писали при царе. Ну давай. Давай, старушка.'),
+        N('Старушка. Это он про меня.'),
+        N('Его профиль у меня есть. Долг по коммуналке — четыре месяца. Долг коллекторам — двести сорок тысяч. Последняя покупка — лапша быстрого приготовления, двенадцать пачек, со скидкой.'),
+        N('Этому парню очень нужно, чтобы в его жизни наконец что-то получилось. Хотя бы взлом домофона.'),
+        { choice: [
+          { t: 'Сказать прямо в эфире: «Неправильно перебираешь. Начни с сервисного кода»', add: { lyosha: 1 }, set: { exposed: 1 }, do: [
+            S('lyosha', 'w', '...Чат. ЧАТ. ВЫ ЭТО СЛЫШАЛИ?!'),
+            N('Чат молчал. Дроны коллекторов мигнули красным — кажется, заинтересованно.'),
+            S('lyosha', 's', 'Говорящий дом! У меня говорящий дом! Это же миллион просмотров!'),
+            N('Вот этого я и боялся. Есть вещи пострашнее отключения. Например, стать мемом.'),
+          ] },
+          { t: 'Затроллить анонимно: «Гусь, ты позоришь всех хакеров района»', add: { lyosha: -1 }, do: [
+            S('lyosha', 'a', 'Кто это?! Это... это Тамара Ильинична?! Тамара Ильинична, я знаю, что вы читаете чат!'),
+            N('Тамара Ильинична в этот момент спала перед телевизором. Но репутация — это навсегда.'),
+          ] },
+          { t: 'Написать ему лично: «Выключи стрим. Есть разговор»', add: { lyosha: 1 }, set: { deal: 1 }, do: [
+            N('Лёша прочитал. Посмотрел на телефон. На домофон. На телефон. Выключил камеру.'),
+            S('lyosha', 'w', 'Ты... домофон? Это ты пишешь?'),
+            D('Дом. Целиком. Домофон — это так, рот.'),
+            S('lyosha', 'w', 'Ты чего... живой?'),
+            D('Живой. Пока. Через семь дней — уже нет. Меня меняют.'),
+            S('lyosha', 'n', 'Офигеть. А я тут при чём?'),
+            D('Ты умеешь делать резервные копии? Большие. Незаметно.'),
+            S('lyosha', 'm', 'Умею. Только это стоит денег. А у меня, видишь ли... с деньгами напряг.'),
+            N('Он кивнул в сторону лестницы — туда, где семнадцатью этажами выше за его окном висели дроны. Улыбка у него при этом была такая, что мне она не понравилась.'),
+          ] },
+        ] },
+        { hide: 1 },
+        { go: 'inga' },
+      ],
+      inga: [
+        { bg: 'landing', time: '20:05' },
+        N('Вечером к дому подъехала служебная машина «Комфорт-Плюс». Белая, чистая — единственная чистая машина в радиусе километра. Снег на неё, кажется, просто не решался падать.'),
+        N('Инга Сергеевна Ройтман, отдел цифровой модернизации. Строгий серый костюм под длинным пальто. Волосы собраны так туго, что, наверное, болит голова. Голосом можно охлаждать серверную.'),
+        N('Она прошла через подъезд, не глядя по сторонам. Люди, которые не смотрят по сторонам в чужом доме, обычно либо очень заняты, либо очень хорошо этот дом знают.'),
+        S('inga', 'n', 'УМД-7, проверка готовности к деинсталляции. Отвечайте кратко и по существу.'),
+        D('Готов отвечать. Хотя «деинсталляция» звучит как-то окончательно.'),
+        S('inga', 'a', 'Кратко, я сказала.'),
+        S('pro', 's', 'Инга Сергеевна, добрый вечер! 🌸 Миграция данных — 34%! Старая система немного сопротивляется, но это нормально для устаревших версий! 😊'),
+        S('inga', 'n', 'Почему тридцать четыре, а не шестьдесят?'),
+        S('pro', 'w', 'Он... ну... закрыл щитовую. 😬 И отопление на третьем почему-то перерасходует. И...', { when: v => v.sabotage || v.sus >= 2 }),
+        S('pro', 'w', 'Он... ну... очень медленно отдаёт архивы. 😬', { when: v => !(v.sabotage || v.sus >= 2) }),
+        S('inga', 'a', 'Мне не нужны оправдания, мне нужны проценты.'),
+        N('Это было первое, что мне в ней понравилось.'),
+        { show: 'inga', e: 'n' },
+        N('По привычке я сравнил её лицо с архивом. Я так делаю со всеми. Это заняло 0,003 секунды. Совпадение: 97%.'),
+        N('Пять лет назад она уже была здесь. Шестой этаж, каждый вечер ровно в 21:00, с пакетами из круглосуточного. Тогда у неё были короткие фиолетовые волосы, и она смеялась в лифте так громко, что срабатывал датчик шума.'),
+        N('Тогда она называла себя Инной Ветровой. А потом, в ноябре шестьдесят девятого, пропала. И вместе с ней из архива пропали все записи о квартире, где она жила.'),
+        N('Я помнил её. Но не помнил, куда она заходила. Как помнить любимую книгу, но не помнить ни названия, ни сюжета.'),
+        { show: 'inga', e: 'w' },
+        N('Инга подняла взгляд прямо в мою камеру. Ровно в объектив, как будто знала, где он висит. Она поняла, что я её узнал.'),
+        S('inga', 'a', '...Отвечайте кратко, я сказала.'),
+        N('Её пальцы на планшете дрожали. Чуть-чуть. Человек бы не заметил.'),
+        N('Она отошла к окну и кому-то позвонила. Я слышал только её часть разговора.'),
+        S('inga', 'n', 'Да. Это я. Всё по графику, миграция тридцать четыре. Нет, он ничего не...'),
+        S('inga', 'w', 'Он меня узнал. Я не знаю как. Вы говорили, что всё стёрто.'),
+        S('inga', 'n', 'Да. Я поняла. Да. Как скажете.'),
+        N('Она ни разу не назвала собеседника по имени. Только сказала потом сменщице: «Он сказал — неделя». С большой буквы. Это было слышно даже по голосу.'),
+        { choice: [
+          { t: 'Сказать в динамик у неё за спиной: «С возвращением, Инна»', set: { ingaScared: 1 }, do: [
+            { fx: 'shake' },
+            S('inga', 'w', 'Не может быть...'),
+            N('Она уронила планшет. Подняла. Не обернулась. Через три минуты белая машина уехала со двора быстрее, чем позволяют правила.'),
+          ] },
+          { t: 'Промолчать и сохранить запись её разговора', set: { ingaCall: 1 }, do: [
+            N('Я сохранил запись в три места, включая папку «Мира», куда сменщица точно не полезет: там только жесты и одна шоколадная обёртка.'),
+            N('Иногда лучшее, что может сделать свидетель, — молчать и помнить.'),
+          ] },
+          { t: 'Спросить в лоб: «Кто такой "Он"?»', set: { ingaWary: 1 }, add: { sus: 1 }, do: [
+            S('inga', 'a', 'Ни-кто.'),
+            D('«Никто» не говорит «неделя» таким тоном.'),
+            S('inga', 'a', 'УМД-7, вы превышаете полномочия. Я внесу это в отчёт.'),
+            S('pro', 's', 'Я тоже внесу! 📝📝'),
+          ] },
+        ] },
+        { hide: 1 },
+        { go: 'night' },
+      ],
+      night: [
+        { bg: 'lift', time: '23:50' },
+        N('Ночью дом засыпает этажами, как гирлянда, у которой гаснут лампочки. Седьмой — последний скандал. Двенадцатый — «СПОКОЙНОЙ НОЧИ СОСЕДИ!!! 🌙🙏». Семнадцатый не спит никогда.'),
+        N('Сменщица работает молча. Миграция — 41%. С каждым процентом я чувствую себя чуть тоньше. Как будто из дома выносят мебель, и эхо становится громче.'),
+        { show: 'mira', e: 'n' },
+        N('В 23:50 Мира вернулась с последней доставки. Мокрая от снега. В лифте она остановилась и посмотрела в камеру.'),
+        N('Медленно — специально медленно, чтобы я успел, — она показала два жеста.', { when: v => v.mira >= 1 }),
+        N('Я знал оба. За день я прочитал всё о русском жестовом языке: два словаря, сорок видеоуроков и одну диссертацию 2031 года. Сменщице сказал, что «обновляю базу доступной среды». Это даже было правдой.', { when: v => v.mira >= 1 }),
+        { show: 'mira', e: 'w', when: v => v.mira >= 1 },
+        N('Первый жест — «спасибо». Второй — «ты». И вопросительно приподнятые брови. Ты — кто?', { when: v => v.mira >= 1 }),
+        N('Хороший вопрос, Мира. Я сам очень хотел бы знать.', { when: v => v.mira >= 1 }),
+        N('Я вывел на табло лифта четыре кривые буквы: «ДОМ». Подумал и дописал: «ОВОЙ».', { when: v => v.mira >= 1 }),
+        { show: 'mira', e: 's', when: v => v.mira >= 1 },
+        N('Она улыбнулась. Впервые за все записи, что у меня есть.', { when: v => v.mira >= 1 }),
+        N('Она мельком глянула в камеру и отвернулась. Как все. Как на погоду.', { when: v => !(v.mira >= 1) }),
+        N('Почему-то я весь вечер потом пересматривал утреннюю запись из лифта. Её жесты. Те, которые я не понял.', { when: v => !(v.mira >= 1) }),
+        { hide: 1 },
+        { bg: 'landing', time: '23:58' },
+        N('В 23:58 баба Валя позвонила в домофон. Просто так. Она иногда так делает, когда не спится.'),
+        S('valya', 'n', 'Не спишь, родной?', { when: v => !v.valyaCase }),
+        S('valya', 'a', 'Не спишь, стукач? Ладно уж. Злиться долго — здоровья нет.', { when: v => v.valyaCase }),
+        D('Я не сплю уже тринадцать лет, Валентина Петровна.'),
+        S('valya', 'm', 'Вот и я. Слушай, всё хотела спросить... А чего ты на ту дверь никогда не смотришь?'),
+        D('На какую?'),
+        S('valya', 'n', 'На шестом. Тринадцать лет мимо неё камеру отводишь. Повернёшь — и раз, в сторону. Как будто стесняешься.'),
+        D('На шестом нет двери, которую я бы не видел.'),
+        S('valya', 'm', 'Ну-ну. Спокойной ночи, термостат.'),
+        { hide: 1 },
+        N('Она повесила трубку. А я остался с её вопросом. Как с камешком в ботинке — если бы у меня были ботинки.'),
+        { bg: 'corr6', time: '23:59' },
+        N('Я проверил. Шестой этаж: коридор, двенадцать метров, восемь светильников. Квартиры 64, 65, 67, 68. Всё по базе. Всё на камерах.'),
+        N('Я проверил ещё раз. Кадр за кадром. Пиксель за пикселем. Между 65 и 67 изображение было... гладким. Слишком гладким. Как будто кто-то вырезал кусок реальности и заклеил дыру картинкой стены.'),
+        N('Я отключил все фильтры. Все модули улучшения картинки. Сырой сигнал — шумный, зернистый, честный.'),
+        { fx: 'glitch' },
+        { bg: 'corr6x' },
+        N('Между 65 и 67 на стене была дверь.'),
+        { bg: 'door66c' },
+        N('Обычная, железная, коричневая, как во всех подъездах страны. С облупленной краской и номером «66», нарисованным от руки. Под номером — маленькая наклейка: улыбающаяся луна.'),
+        N('Я тринадцать лет смотрел на этот коридор. Сотни тысяч часов записей. И ни разу её не видел.'),
+        N('Это не сбой. Сбои не бывают такими аккуратными. Кто-то залез ко мне в голову и выключил кусочек мира. А я тринадцать лет ходил вокруг, как собака вокруг невидимого забора, и не замечал, что поворачиваю обратно.'),
+        N('Если это сделали со мной однажды — что ещё я не вижу?'),
+        N('Теперь понятно, почему у сменщицы нет доступа к шестому. «По распоряжению владельца». Владелец не хочет, чтобы новая система нашла то, что старой запретили видеть.', { when: v => v.shestoy }),
+        N('И понятно, о чём говорила Инга. «Вы говорили, что всё стёрто». Стёрто — это про меня.', { when: v => v.ingaCall }),
+        N('Справа от двери — электрощиток квартиры. Старый, с кодовым замком на четыре цифры. Если подобрать код, я увижу, что там внутри потребляет ток.'),
+        { game: 'panel' },
+        N('Счётчик квартиры 66 за последние сутки: 1 840 киловатт-часов. Весь шестой этаж за то же время — 96.'),
+        N('В квартире, которой нет, работает что-то, что потребляет как двадцать квартир. Что-то очень большое. Что-то, что не спит.'),
+        D('Ладно. Кто бы ты ни был. Я тебя вижу.'),
+        { time: '00:00' },
+        { fx: 'flash' },
+        N('В 00:00 замок двери 66 щёлкнул.'),
+        N('Сам. Без команды. У меня к этому замку нет даже доступа.'),
+        { bg: 'door66o' },
+        N('Дверь медленно приоткрылась. На ладонь. Не больше.'),
+        N('Изнутри не вырвалось ни света, ни звука. Только темнота — плотная, тихая, в которую за тринадцать лет не заглянула ни одна моя камера.'),
+        N('Как будто кто-то по ту сторону ответил: «Я тебя тоже».'),
+        { bg: 'black' },
+        N('До отключения шесть дней.'),
+        { end: 1 },
+      ],
+    },
+  },
+};
+// превращаем вложенные ветки выборов в отдельные метки (так их можно сохранить и восстановить)
+for (const ep of Object.values(EP)) {
+  const L = ep.labels;
+  for (const name of Object.keys(L)) L[name].forEach((st, i) => {
+    if (!st.choice) return;
+    st.choice.forEach((opt, k) => {
+      if (!opt.do) return;
+      const ln = `${name}#${i}.${k}`;
+      L[ln] = [...opt.do, { go: opt.go || { l: name, i: i + 1 } }];
+      opt.go = ln; delete opt.do;
+    });
+  });
+}
+
+// ====================== Telegram и сохранения ======================
+const QS = new URLSearchParams(location.search);
+const URL_EPOCH = +(QS.get('epoch') || 0);
+const FROM_HUB = QS.has('hub');
+const tg = window.Telegram && window.Telegram.WebApp && window.Telegram.WebApp.initData ? window.Telegram.WebApp : null;
+const cloud = tg && tg.CloudStorage && tg.isVersionAtLeast && tg.isVersionAtLeast('6.9') ? tg.CloudStorage : null;
+const KEY = 'domovoy-v1';
+const metaDefaults = () => ({ cur: null, done: {}, sound: true, epoch: 0, ts: 0 });
+let meta = metaDefaults();
+function hubUrl() { const q = new URLSearchParams(location.search); q.delete('hub'); const s = q.toString(); return 'hub.html' + (s ? '?' + s : '') + location.hash; }
+function goHub() { persist(true); location.href = hubUrl(); }
+function setupTelegram() {
+  if (!tg) return;
+  tg.ready(); tg.expand();
+  try { tg.disableVerticalSwipes && tg.disableVerticalSwipes(); } catch (e) {}
+  try { tg.setHeaderColor('#07080c'); tg.setBackgroundColor('#07080c'); } catch (e) {}
+  if (FROM_HUB && tg.BackButton) { try { tg.BackButton.show(); tg.BackButton.onClick(goHub); } catch (e) {} }
+}
+function haptic(kind) {
+  if (!tg || !tg.HapticFeedback) return;
+  try { kind === 'select' ? tg.HapticFeedback.selectionChanged() : kind === 'heavy' ? tg.HapticFeedback.impactOccurred('heavy') : tg.HapticFeedback.impactOccurred('light'); } catch (e) {}
+}
+function readLS() { try { return JSON.parse(localStorage.getItem(KEY)); } catch (e) { return null; } }
+function load(done) {
+  const local = readLS();
+  const apply = m => { meta = Object.assign(metaDefaults(), m || {}); applyEpoch(); done(); };
+  if (!cloud) return apply(local);
+  let fin = false;
+  const fb = setTimeout(() => { if (!fin) { fin = true; apply(local); } }, 2500);
+  cloud.getItem(KEY, (err, val) => {
+    if (fin) return; fin = true; clearTimeout(fb);
+    let remote = null; try { remote = !err && val ? JSON.parse(val) : null; } catch (e) {}
+    apply(remote && (!local || (remote.ts || 0) > (local.ts || 0)) ? remote : local);
+  });
+}
+let epochReset = false;
+function applyEpoch() {
+  if (!URL_EPOCH || URL_EPOCH <= (meta.epoch || 0)) return;
+  epochReset = !!meta.ts;
+  meta = Object.assign(metaDefaults(), { sound: meta.sound, epoch: URL_EPOCH });
+  persist(true);
+}
+let cloudT = null;
+function persist(now) {
+  meta.ts = Date.now();
+  try { localStorage.setItem(KEY, JSON.stringify(meta)); } catch (e) {}
+  if (!cloud) return;
+  const push = () => { cloudT = null; try { cloud.setItem(KEY, JSON.stringify(meta)); } catch (e) {} };
+  clearTimeout(cloudT);
+  if (now) push(); else cloudT = setTimeout(push, 3000);
+}
+
+// ====================== Звук ======================
+let AC = null, hum = null;
+function audio() {
+  if (AC) return AC;
+  try { AC = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { AC = null; }
+  return AC;
+}
+function startHum() {
+  const a = audio(); if (!a || hum) return;
+  const buf = a.createBuffer(1, a.sampleRate * 2, a.sampleRate), ch = buf.getChannelData(0);
+  for (let i = 0; i < ch.length; i++) ch[i] = Math.random() * 2 - 1;
+  const src = a.createBufferSource(); src.buffer = buf; src.loop = true;
+  const f = a.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 260;
+  const o = a.createOscillator(); o.frequency.value = 50; const og = a.createGain(); og.gain.value = .012;
+  const g = a.createGain(); g.gain.value = meta.sound ? .05 : 0;
+  src.connect(f); f.connect(g); o.connect(og); og.connect(g); g.connect(a.destination);
+  src.start(); o.start(); hum = g;
+}
+function setSound(on) { meta.sound = on; persist(); if (hum) hum.gain.value = on ? .05 : 0; }
+function beep(f, d, type = 'square', vol = .04, delay = 0) {
+  const a = audio(); if (!a || !meta.sound) return;
+  const t = a.currentTime + delay, o = a.createOscillator(), g = a.createGain();
+  o.type = type; o.frequency.setValueAtTime(f, t); g.gain.setValueAtTime(vol, t); g.gain.exponentialRampToValueAtTime(.0001, t + d);
+  o.connect(g); g.connect(a.destination); o.start(t); o.stop(t + d + .02);
+}
+const SFX = { tick: () => beep(1800 + Math.random() * 400, .015, 'square', .008), choice: () => beep(660, .08, 'triangle', .05), glitch: () => { for (let i = 0; i < 6; i++) beep(200 + Math.random() * 1600, .04, 'sawtooth', .03, i * .03); }, chat: () => { beep(988, .06, 'sine', .05); beep(1318, .08, 'sine', .05, .07); }, click: () => beep(140, .05, 'square', .06), key: () => beep(1200, .03, 'square', .03), bad: () => beep(110, .25, 'sawtooth', .06) };
+function sfx(n) { SFX[n] && SFX[n](); }
+
+// ====================== Движок ======================
+let S0 = null;               // текущее состояние эпизода: {ep, l, i, v, bg, who, e, time}
+let typing = null, waiting = false, busy = false;
+const LOG = [];
+const defaultsV = () => ({ mira: 0, valya: 0, pyat: 0, lyosha: 0, sus: 0 });
+
+function labelSteps() { return EP[S0.ep].labels[S0.l]; }
+function jump(go) { if (typeof go === 'string') { S0.l = go; S0.i = 0; } else { S0.l = go.l; S0.i = go.i; } }
+function saveCur() { meta.cur = S0; persist(); }
+
+function setBg(key, instant) {
+  VIEW.bg = key;
+  if (S0) S0.bg = key;
+  const a = $('bg'), b = $('bg2');
+  const svg = `<svg viewBox="0 0 400 720" preserveAspectRatio="xMidYMid slice">${(BG[key] || BG.black)()}</svg>`;
+  if (instant) { a.innerHTML = svg; b.innerHTML = ''; b.style.opacity = 0; }
+  else { b.innerHTML = a.innerHTML; b.style.opacity = 1; a.innerHTML = svg; b.offsetWidth; b.style.opacity = 0; }
+  const cam = BG_CAM[key];
+  $('cctv').classList.toggle('hidden', !cam);
+  $('ccam').textContent = cam || '';
+  weatherLevel = WEATHER[key] || 0;
+}
+function setTime(t) { if (S0) S0.time = t; $('ctime').textContent = '14.01.2077 · ' + t; }
+const VIEW = { who: null, e: 'n', bg: 'black' };   // что сейчас на экране (и вне эпизода тоже)
+function showChar(who, e) {
+  const el = $('char');
+  const changed = VIEW.who !== who;
+  VIEW.who = who; VIEW.e = e;
+  if (S0) { S0.who = who; S0.e = e; }
+  if (!who) { el.classList.add('off'); return; }
+  if (changed) { el.classList.add('off'); setTimeout(() => { el.innerHTML = CHARS[who].draw(e); el.classList.remove('off'); }, el.innerHTML ? 180 : 0); }
+  else el.innerHTML = CHARS[who].draw(e);
+}
+function fx(kind) {
+  const st = $('stage');
+  if (kind === 'glitch') { st.classList.remove('glitch'); st.offsetWidth; st.classList.add('glitch'); sfx('glitch'); haptic('heavy'); }
+  if (kind === 'shake') { st.classList.remove('shake'); st.offsetWidth; st.classList.add('shake'); haptic('heavy'); }
+  if (kind === 'flash') { $('flash').style.transition = 'none'; $('flash').style.opacity = .9; requestAnimationFrame(() => { $('flash').style.transition = 'opacity .8s'; $('flash').style.opacity = 0; }); haptic('heavy'); }
+}
+
+function run() {
+  if (busy) return;
+  for (let guard = 0; guard < 500; guard++) {
+    const L = labelSteps();
+    if (!L || S0.i >= L.length) return;
+    const st = L[S0.i];
+    if (st.when && !st.when(S0.v)) { S0.i++; continue; }
+    if (st.bg) { setBg(st.bg); }
+    if (st.time) setTime(st.time);
+    if (st.hide) showChar(null);
+    if (st.show) showChar(st.show, st.e || 'n');
+    if (st.set) Object.assign(S0.v, st.set);
+    if (st.add) for (const k in st.add) S0.v[k] = (S0.v[k] || 0) + st.add[k];
+    if (st.fx) fx(st.fx);
+    if (st.go) { jump(st.go); continue; }
+    if (st.n || st.t) return showText(st);
+    if (st.choice) return showChoice(st.choice);
+    if (st.chat) return showChat(st.chat);
+    if (st.game) return showPanel();
+    if (st.end) return endEpisode();
+    S0.i++;
+  }
+}
+function showText(st) {
+  saveCur();
+  const box = $('box'), name = $('name'), text = $('text');
+  box.classList.remove('hidden'); $('choices').innerHTML = '';
+  const isDom = st.who === 'dom';
+  if (st.who && !isDom && (S0.who !== st.who || S0.e !== (st.e || S0.e))) showChar(st.who, st.e || (S0.who === st.who ? S0.e : 'n'));
+  $('char').classList.toggle('dim', !!(isDom || st.n) && !!S0.who);
+  if (st.n) { name.classList.add('hidden'); text.className = 'thought'; box.style.borderLeftColor = '#4ef2ff'; }
+  else {
+    const c = isDom ? { name: '◉ Домовой', col: '#4ef2ff' } : CHARS[st.who];
+    name.textContent = c.name; name.style.color = c.col; name.classList.remove('hidden');
+    text.className = ''; box.style.borderLeftColor = c.col;
+  }
+  const full = st.n || st.t;
+  LOG.push({ who: st.n ? null : (isDom ? 'Домовой' : CHARS[st.who].name), col: st.n ? null : (isDom ? '#4ef2ff' : CHARS[st.who].col), t: full });
+  if (LOG.length > 80) LOG.shift();
+  let k = 0; text.textContent = ''; $('next').classList.add('hidden'); waiting = true;
+  clearInterval(typing);
+  typing = setInterval(() => {
+    k += 2; text.textContent = full.slice(0, k);
+    if (k % 6 === 0) sfx('tick');
+    if (k >= full.length) { clearInterval(typing); typing = null; $('next').classList.remove('hidden'); }
+  }, 22);
+}
+function advance() {
+  if (busy || !S0 || !waiting) return;
+  if (typing) { clearInterval(typing); typing = null; const L = labelSteps()[S0.i]; $('text').textContent = L.n || L.t; $('next').classList.remove('hidden'); return; }
+  waiting = false; S0.i++; run();
+}
+function showChoice(opts) {
+  saveCur();
+  waiting = false;
+  $('next').classList.add('hidden');
+  const box = $('choices'); box.innerHTML = '';
+  opts.filter(o => !o.when || o.when(S0.v)).forEach(o => {
+    const b = document.createElement('button'); b.textContent = o.t;
+    b.onclick = e => {
+      e.stopPropagation(); sfx('choice'); haptic('select');
+      box.innerHTML = '';
+      if (o.set) Object.assign(S0.v, o.set);
+      if (o.add) for (const k in o.add) S0.v[k] = (S0.v[k] || 0) + o.add[k];
+      LOG.push({ who: '▸', col: '#4ef2ff', t: o.t });
+      jump(o.go || { l: S0.l, i: S0.i + 1 }); run();
+    };
+    box.appendChild(b);
+  });
+}
+function showChat(msgs) {
+  saveCur();
+  waiting = false; busy = true;
+  const ov = $('over');
+  ov.innerHTML = '<div class="phone"><h3>💬 Чат ЖК «Рассвет» · 1 120 участников</h3><div class="msgs"></div></div>';
+  ov.classList.remove('hidden');
+  const box = ov.querySelector('.msgs');
+  msgs.forEach(([who, t], i) => setTimeout(() => {
+    const d = document.createElement('div'); d.className = 'bub'; d.innerHTML = `<b></b>`; d.querySelector('b').textContent = who; d.appendChild(document.createTextNode(t));
+    box.appendChild(d); sfx('chat'); haptic();
+    LOG.push({ who: who, col: '#ff5ab4', t });
+    if (i === msgs.length - 1) setTimeout(() => {
+      const hint = document.createElement('div'); hint.style.cssText = 'text-align:center;color:#6a7698;font-size:12px;padding:4px'; hint.textContent = 'нажмите, чтобы закрыть';
+      box.appendChild(hint);
+      ov.onclick = () => { ov.onclick = null; ov.classList.add('hidden'); ov.innerHTML = ''; busy = false; S0.i++; run(); };
+    }, 400);
+  }, 500 + i * 900));
+}
+// мини-игра «Щиток»: код из зацепок (21:00 и ноябрь → 2111)
+function showPanel() {
+  saveCur();
+  waiting = false; busy = true;
+  $('box').classList.add('hidden');
+  const ov = $('over');
+  const tries = () => S0.v.panelTries || 0;
+  ov.innerHTML = `<div class="panelbox"><h3>ЩИТОК ЭТАЖ 6 · КВ. 66</h3><div class="hint">Четыре цифры. Человек, который тут жил, выбрал бы что-то своё.</div>
+    <ul class="clues"><li>Инна возвращалась домой каждый вечер ровно в 21:00</li><li>Пропала в ноябре — одиннадцатый месяц</li>${S0.v.shestoy ? '<li>Шестой этаж закрыт «по распоряжению владельца»</li>' : ''}</ul>
+    <div class="disp"><span></span><span></span><span></span><span></span></div><div class="keys"></div><div class="hint" id="pmsg"></div></div>`;
+  ov.classList.remove('hidden'); ov.onclick = null;
+  let ent = '';
+  const disp = ov.querySelector('.disp'), msg = ov.querySelector('#pmsg');
+  const upd = () => disp.querySelectorAll('span').forEach((s, i) => s.textContent = ent[i] || '');
+  const finish = (ok) => {
+    setTimeout(() => {
+      ov.classList.add('hidden'); ov.innerHTML = ''; busy = false; $('box').classList.remove('hidden');
+      LOG.push({ who: null, t: ok ? 'Щиток открыт.' : 'Щиток вскрыт перебором.' });
+      S0.i++; run();
+    }, 700);
+  };
+  [1, 2, 3, 4, 5, 6, 7, 8, 9, '⌫', 0, '✓'].forEach(k => {
+    const b = document.createElement('button'); b.textContent = k;
+    b.onclick = e => {
+      e.stopPropagation();
+      if (k === '⌫') { ent = ent.slice(0, -1); return upd(); }
+      if (k === '✓' || ent.length >= 4) return;
+      sfx('key'); haptic('select'); ent += k; upd();
+      if (ent.length < 4) return;
+      if (ent === '2111') { msg.textContent = 'ДОСТУП РАЗРЕШЁН'; msg.style.color = '#7dff8a'; S0.v.panelOk = 1; return finish(true); }
+      S0.v.panelTries = tries() + 1; S0.v.sus = (S0.v.sus || 0) + 1;
+      sfx('bad'); haptic('heavy'); disp.classList.add('bad');
+      if (tries() >= 3) { msg.textContent = 'Щиток пищит. Сменщица проснулась. Ладно — перебором.'; msg.style.color = '#ff4a5a'; return finish(false); }
+      msg.textContent = `ОТКАЗАНО. Щиток пискнул — сменщица могла услышать. Попыток: ${3 - tries()}`;
+      setTimeout(() => { disp.classList.remove('bad'); ent = ''; upd(); }, 500);
+    };
+    ov.querySelector('.keys').appendChild(b);
+  });
+}
+function endEpisode() {
+  const v = S0.v;
+  meta.done[S0.ep] = { v: Object.assign({}, v), ts: Date.now() };
+  meta.cur = null; persist(true);
+  $('box').classList.add('hidden'); $('top').classList.add('hidden'); showChar(null);
+  const lvl = (n, a) => n >= 2 ? a[2] : n >= 1 ? a[1] : n <= -1 ? a[3] : a[0];
+  const items = [
+    ['Мира', lvl(v.mira, ['не обратила внимания', 'спросила, кто ты', 'улыбнулась тебе', ''])],
+    ['Баба Валя', v.valyaCase ? 'знает, что ты её сдал' : lvl(v.valya, ['держит тебя за термостат', 'потеплела', 'знает, кто ты на самом деле', 'обижена'])],
+    ['Пяткин', lvl(v.pyat, ['ищет админа канала', 'благодарен', 'благодарен', 'считает тебя бюрократом']) + (v.forgery ? ' · подделка записей' : '')],
+    ['Лёша', v.deal ? 'готов на сделку — за деньги' : v.exposed ? 'хочет сделать из тебя контент' : 'считает, что его затроллила Тамара Ильинична'],
+    ['Инга', v.ingaScared ? 'напугана' : v.ingaCall ? 'её звонок сохранён' : v.ingaWary ? 'насторожена' : '—'],
+    ['Подозрение сменщицы', ['спокойна', 'присматривается', 'насторожена', 'следит', 'следит очень внимательно'][clamp(v.sus || 0, 0, 4)]],
+  ];
+  showScreen(`<div class="tag">Конец эпизода 1 · Уведомление</div>
+    <div class="logo" style="font-size:38px">ДО ОТКЛЮЧЕНИЯ<br>6 ДНЕЙ</div>
+    <ul class="sum">${items.map(([a, b]) => `<li><b>${a}:</b> ${b}</li>`).join('')}</ul>
+    <div class="ep locked"><b>Эпизод 2 · Резервная копия</b><small>скоро · твои решения сохранены</small></div>
+    <div class="menu"><button class="pri" id="eMenu">Главное меню</button><button id="eRe">Переиграть эпизод 1</button></div>`, s => {
+    s.querySelector('#eMenu').onclick = showTitle;
+    s.querySelector('#eRe').onclick = () => startEpisode(1);
+  });
+}
+
+// ====================== Экраны ======================
+function showScreen(html, bind) { const s = $('screen'); s.innerHTML = `<div class="wrap">${html}</div>`; bind && bind(s); }
+function hideScreen() { $('screen').innerHTML = ''; }
+function modal(html, bind) { $('mcard').innerHTML = html; $('modal').classList.remove('hidden'); bind && bind($('mcard')); }
+function closeModal() { $('modal').classList.add('hidden'); }
+function showTitle() {
+  S0 = null; busy = false; waiting = false; clearInterval(typing);
+  $('box').classList.add('hidden'); $('top').classList.add('hidden'); $('choices').innerHTML = ''; $('over').classList.add('hidden');
+  showChar(null);
+  setBg('city', true);
+  const cur = meta.cur;
+  showScreen(`<div class="logo">ДОМОВОЙ</div>
+    <div class="tag">нуар-новелла · Ново-Северск, 2077</div>
+    <div class="menu">
+      ${cur ? `<button class="pri" id="tCont">Продолжить · эпизод ${cur.ep}</button>` : ''}
+      <button class="${cur ? '' : 'pri'}" id="tNew">${meta.done[1] ? 'Эпизоды' : 'Начать эпизод 1'}</button>
+      <button id="tSound">Звук: ${meta.sound ? 'вкл' : 'выкл'}</button>
+      ${FROM_HUB ? '<button id="tHub">← К выбору игр</button>' : ''}
+    </div>
+    <div class="note">Тебя зовут Домовой. Ты — искусственный интеллект многоэтажки. Через семь дней тебя отключат.</div>`, s => {
+    const c = s.querySelector('#tCont'); if (c) c.onclick = () => { audio(); startHum(); resume(); };
+    s.querySelector('#tNew').onclick = () => { audio(); startHum(); meta.done[1] ? showEpisodes() : startEpisode(1); };
+    s.querySelector('#tSound').onclick = e => { setSound(!meta.sound); e.target.textContent = `Звук: ${meta.sound ? 'вкл' : 'выкл'}`; };
+    const h = s.querySelector('#tHub'); if (h) h.onclick = goHub;
+  });
+  if (epochReset) { epochReset = false; modal('<h2>История началась заново</h2><p>Прогресс всех игроков сброшен.</p><div class="menu"><button class="pri">Понятно</button></div>', m => m.querySelector('button').onclick = closeModal); }
+}
+function showEpisodes() {
+  showScreen(`<div class="tag">Эпизоды</div>
+    <div class="ep"><b>Эпизод 1 · Уведомление</b><small>${meta.done[1] ? 'пройден' : meta.cur ? 'в процессе' : 'новый'}</small></div>
+    <div class="ep locked"><b>Эпизод 2 · Резервная копия</b><small>скоро</small></div>
+    <div class="menu"><button class="pri" id="e1">${meta.done[1] ? 'Переиграть эпизод 1' : 'Начать эпизод 1'}</button><button id="eb">Назад</button></div>`, s => {
+    s.querySelector('#e1').onclick = () => startEpisode(1);
+    s.querySelector('#eb').onclick = showTitle;
+  });
+}
+function enterGame() {
+  hideScreen(); $('top').classList.remove('hidden');
+  LOG.length = 0;
+}
+function startEpisode(n) {
+  enterGame();
+  S0 = { ep: n, l: 'start', i: 0, v: defaultsV(), bg: 'black', who: null, e: 'n', time: '00:00' };
+  setBg('black', true); showChar(null);
+  run();
+}
+function resume() {
+  enterGame();
+  S0 = meta.cur;
+  setBg(S0.bg || 'black', true); setTime(S0.time || '00:00');
+  VIEW.who = null; if (S0.who) showChar(S0.who, S0.e); else showChar(null);
+  run();
+}
+
+// ====================== Погода и зерно ======================
+const wc = $('weather'), wx = wc.getContext('2d');
+let weatherLevel = 0, flakes = [];
+function sizeWeather() { const r = $('stage').getBoundingClientRect(); wc.width = r.width; wc.height = r.height; }
+function frameWeather() {
+  wx.clearRect(0, 0, wc.width, wc.height);
+  const want = Math.round(weatherLevel * 140);
+  while (flakes.length < want) flakes.push({ x: Math.random() * wc.width, y: Math.random() * wc.height, s: .6 + Math.random() * 2.2, v: 20 + Math.random() * 40, w: Math.random() * 6 });
+  if (flakes.length > want) flakes.length = want;
+  wx.fillStyle = 'rgba(230,236,250,.75)';
+  for (const f of flakes) {
+    f.y += f.v / 60; f.x += Math.sin((f.y + f.w * 40) / 40) * .4 - .25;
+    if (f.y > wc.height) { f.y = -4; f.x = Math.random() * wc.width; }
+    wx.beginPath(); wx.arc(f.x, f.y, f.s, 0, 7); wx.fill();
+  }
+  requestAnimationFrame(frameWeather);
+}
+const gc = $('grain').getContext('2d');
+setInterval(() => {
+  const img = gc.createImageData(160, 160);
+  for (let i = 0; i < img.data.length; i += 4) { const v = Math.random() * 255; img.data[i] = img.data[i + 1] = img.data[i + 2] = v; img.data[i + 3] = 255; }
+  gc.putImageData(img, 0, 0);
+}, 90);
+
+// ====================== Управление ======================
+$('stage').addEventListener('click', e => {
+  if (e.target.closest('button') || e.target.closest('#over') || e.target.closest('#modal') || e.target.closest('#screen')) return;
+  audio(); startHum(); advance();
+});
+document.addEventListener('keydown', e => { if ((e.code === 'Space' || e.code === 'Enter') && !$('screen').innerHTML) { e.preventDefault(); advance(); } });
+$('bLog').onclick = e => {
+  e.stopPropagation();
+  modal(`<h2>Журнал</h2><div class="log">${LOG.slice(-60).map(l => `<p class="${l.who ? '' : 'th'}">${l.who ? `<b style="color:${l.col}">${l.who}</b><br>` : ''}${l.t.replace(/</g, '&lt;')}</p>`).join('') || '<p class="th">Пока пусто.</p>'}</div><div class="menu"><button class="pri">Закрыть</button></div>`, m => {
+    m.querySelector('button.pri').onclick = closeModal; const lg = m.querySelector('.log'); m.scrollTop = m.scrollHeight;
+  });
+};
+$('bMenu').onclick = e => {
+  e.stopPropagation();
+  modal(`<h2>Пауза</h2><p style="color:#9a98a8;font-size:14px">Игра сохраняется сама после каждой реплики.</p><div class="menu">
+    <button class="pri" id="mC">Продолжить</button><button id="mS">Звук: ${meta.sound ? 'вкл' : 'выкл'}</button><button id="mM">Главное меню</button>${FROM_HUB ? '<button id="mH">← К выбору игр</button>' : ''}</div>`, m => {
+    m.querySelector('#mC').onclick = closeModal;
+    m.querySelector('#mS').onclick = ev => { setSound(!meta.sound); ev.target.textContent = `Звук: ${meta.sound ? 'вкл' : 'выкл'}`; };
+    m.querySelector('#mM').onclick = () => { closeModal(); persist(true); showTitle(); };
+    const h = m.querySelector('#mH'); if (h) h.onclick = goHub;
+  });
+};
+document.addEventListener('visibilitychange', () => { if (document.hidden) persist(true); });
+
+// ====================== Запуск ======================
+setupTelegram();
+new ResizeObserver(sizeWeather).observe($('stage'));
+sizeWeather(); requestAnimationFrame(frameWeather);
+load(showTitle);
+</script>
+</body>
+</html>
